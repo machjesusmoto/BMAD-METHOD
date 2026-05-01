@@ -1,5 +1,647 @@
 # Changelog
 
+## v6.6.0 - 2026-04-28
+
+### 💥 Breaking Changes
+
+* `--tools none` is no longer accepted; fresh `--yes` installs now require an explicit `--tools <id>`. Existing-install flows are unchanged. Run `npx bmad-method --list-tools` to see supported IDs (#2346)
+* `project_name` has moved from `[modules.bmm]` to `[core]` in `config.toml`. Existing installs are auto-migrated on next install/update — no manual action required (#2348)
+
+### 🎁 Features
+
+* **Non-interactive config for CI/Docker** — new `--set <module>.<key>=<value>` (repeatable) and `--list-options [module]` flags allow installer configuration without prompts. Routes values to the correct config file with prototype-pollution defenses (#2354)
+* **Brownfield epic scoping** — Create Epics and Stories workflow now detects file-overlap between epics and applies an Implementation Efficiency principle plus a design completeness gate, reducing unnecessary file churn (#1826)
+
+### 🐛 Fixes
+
+* **Custom module installer** — Azure DevOps URLs now parse correctly with multi-segment paths and `_git` prefixes (#2269); HTTP (non-HTTPS) Git URLs are preserved for self-hosted servers (#2344); community installs route through `PluginResolver` so marketplace plugins with nested `module.yaml` install all skills (#2331); URL-source modules resolve from disk cache on re-install instead of warning (#2323); local `--custom-content` modules resolve correctly and `[modules.<code>]` TOML keys use the module code rather than display name (#2316); `--yes` with `--custom-source` now runs the full update path so version tags are respected (#2336)
+* **Installer safety** — `--list-tools` flag added; empty/typo'd tool IDs rejected with specific errors (#2346)
+* **Channel and dist-tag handling** — installer launched from a prerelease (e.g. `@next`) now defaults external module channels to `next` instead of silently downgrading to stable (#2321); stable publishes advance the `@next` dist-tag so prerelease users no longer leapfrog or miss update notifications (#2320)
+* **Architecture validation gate** — step-07 validation template no longer ships pre-checked; status field is now templated against actual checklist completion (#2347)
+* **bmad-help data integrity** — `bmad-help.csv` is no longer transformed at merge time and is emitted in its documented schema; 31 misaligned rows in core/bmm `module-help.csv` repaired (#2349)
+* **Config robustness** — malformed `module.yaml` (scalars, arrays) is now rejected before crash (#2348)
+* **Legacy cleanup** — pre-v6.2.0 wrapper skills (`bmad-bmm-*`, `bmad-agent-bmm-*`) are removed automatically on upgrade so they no longer error with missing-file warnings (#2315)
+
+### 📚 Docs
+
+* Complete Chinese (zh-CN) translations for `named-agents.md` and `expand-bmad-for-your-org.md`; localized BMad Ecosystem sidebar (CIS, BMB, TEA, WDS) across zh-cn, vi-vn, fr-fr, cs-cz (#2355)
+
+## v6.5.0 - 2026-04-26
+
+### 🎁 Features
+
+* Support for 18 new agent platforms: AdaL, Sourcegraph Amp, IBM Bob, Command Code, Snowflake Cortex Code, Factory Droid, Firebender, Block Goose, Kode, Mistral Vibe, Mux, Neovate, OpenClaw, OpenHands, Pochi, Replit Agent, Warp, Zencoder — bringing total supported platforms to 42 (#2313)
+* All platforms that support the cross-tool `.agents/skills/` standard now use it (#2313)
+
+## v6.4.0 - 2026-04-24
+
+### ✨ Headline
+
+**Full agent and workflow customization across the entire BMad Method.** Every agent and workflow in BMM, Core, CIS, GDS, and TEA can now be customized via TOML overrides in `_bmad/custom/`. Customize agents to apply tooling, version control, or behavior changes across whole groups of workflows. Drop in fine-grained per-workflow overrides where you need them. Built for power users who want BMad to fit their stack without forking.
+
+**Stable and bleeding-edge release channels, standardized across all modules.** Pick `stable` or `next` per module, pin specific versions, and switch channels interactively or via CLI flags (`--channel`, `--all-stable`, `--all-next`, `--next=CODE`, `--pin CODE=TAG`). Same model across BMM, Core, and every external module.
+
+### 💥 Breaking Changes
+
+* Customization is now TOML-based; the briefly introduced YAML-based customization is no longer supported (#2284, #2283)
+
+### 🎁 Features
+
+**Customization framework**
+
+* TOML-based agent and workflow customization with flat schema, structural merge rules (scalars, tables, code-keyed arrays, append arrays), and `persistent_facts` unification (#2284)
+* Central `_bmad/config.toml` surface with four-file architecture (`config.toml`, `config.user.toml`, `custom/config.toml`, `custom/config.user.toml`) for agent roster and scope-partitioned install answers (#2285)
+* `customize.toml` support extended to 17 bmm-skills workflows with flattened SKILL.md architecture and standardized `[workflow]` block (#2287)
+* `customize.toml` extended to all six developer-execution workflows: bmad-dev-story, bmad-code-review, bmad-sprint-planning, bmad-sprint-status, bmad-quick-dev, bmad-checkpoint-preview (#2308)
+* `bmad-customize` skill — guided authoring of TOML overrides in `_bmad/custom/` with stdlib-only resolver verification (#2289)
+* Wire `on_complete` hook into all 23 workflow terminal steps with full customize.toml documentation (#2290)
+
+**Release channels & installer**
+
+* Channel-based version resolution for external modules with interactive channel management (`stable` / `next` / `pinned`) and CLI flags (`--channel`, `--all-stable`, `--all-next`, `--next=CODE`, `--pin CODE=TAG`) (#2305)
+* GitHub API as primary fetch with raw CDN fallback in installer registry client to support corporate proxies (#2248)
+
+**Other**
+
+* Kimi Code CLI support for installing BMM skills in `.kimi/skills/` (#2302)
+* `bmad-create-story` now reads every UPDATE-marked file before generating dev notes so brownfield stories preserve current behavior instead of improvising at implementation time (#2274)
+* Sync `sprint-status.yaml` from quick-dev on epic-story implementation with idempotent writes tracking `in-progress` and `review` transitions (#2234)
+* Enforce model parity for all code review subagents to match orchestrator session capability for improved rare-event detection (#2236)
+* Set `team: software-development` on all six BMM agents for unified grouping in party-mode and retrospective skills (#2286)
+
+### 🐛 Bug Fixes
+
+* PRD workflow no longer silently de-scopes user requirements or invents MVP/Growth/Vision phasing; requires explicit confirmation before any scope reduction (#1927)
+* Installer shows live npm version for external modules instead of stale cached metadata (#2307)
+* Resolve external-module agents from cache during manifest write so agents land in `config.toml` (#2295)
+* Fix installer version resolution for external modules with shared resolver preferring package.json > module.yaml > marketplace.json (#2298)
+* Replace fs-extra with native `node:fs` to prevent file loss during multi-module installs from deferred retry-queue races (#2253)
+* Add `move()` and overwrite support to fs-native wrapper for directory migrations during upgrades (#2253)
+* Stop skill scanner from recursing into discovered skills to prevent spurious errors on nested template files (#2255)
+* Source built-in modules locally in installer UI to preserve core and bmm in module list when registry is unreachable (#2251)
+* Remove dead Batch-apply option from code-review patch menu and rename apply options for clarity (#2225)
+
+### ♻️ Refactoring
+
+* Remove 1,683 lines of dead code: three entirely dead files (agent-command-generator.js, bmad-artifacts.js, module-injections.js) and ~50 unused exports across installer modules (#2247)
+* Remove dead template and agent-command pipeline from installer; SKILL.md directory copying is the sole installation path (#2244)
+
+### 📚 Documentation
+
+* Sync and update Vietnamese (vi-VN) docs with missing pages and refreshed translations (#2291, #2222)
+* Sync French (fr-FR) translations with upstream, restore Amelia as dev agent, fix sidebar ordering (#2231)
+* Add Czech (cs-CZ) `analysis-phase.md` translation; normalize typographic quotes (#2240, #2241, #2242)
+* Add missing Chinese (zh-CN) translations for 3 documents (#2254)
+* Update stale Analyst agent triggers and add PRFAQ link (#2238)
+* Remove Bob from workflow map diagrams reflecting consolidation into Amelia in v6.3.0 (#2252)
+
+## v6.3.0 - 2026-04-09
+
+### 💥 Breaking Changes
+
+* Remove custom content installation feature; use marketplace-based plugin installation instead (#2227)
+* Remove bmad-init skill; all agents and skills now load config directly from `{project-root}/_bmad/bmm/config.yaml` (#2159)
+* Remove spec-wip.md singleton; quick-dev now writes directly to `spec-{slug}.md` with status field, enabling parallel sessions (#2214)
+* Consolidate three agent personas into Developer agent (Amelia): remove Barry quick-flow-solo-dev (#2177), Quinn QA agent (#2179), and Bob Scrum Master agent (#2186)
+
+### 🎁 Features
+
+* Universal source support for custom module installs with 5-strategy PluginResolver cascade supporting any Git host (GitHub, GitLab, Bitbucket, self-hosted) and local file paths (#2233)
+* Community module browser with three-tier selection: official, community (category drill-down from marketplace index), and custom URL with unverified source warning (#2229)
+* Switch module source of truth from bundled config to remote marketplace registry with network-failure fallback (#2228)
+* Add bmad-prfaq skill implementing Amazon's Working Backwards methodology as alternative Phase 1 analysis path with 5-stage coached workflow and subagent architecture (#2157)
+* Add bmad-checkpoint-preview skill for guided, concern-ordered human review of commits, branches, or PRs (#2145)
+* Epic context compilation for quick-dev step-01: sub-agent compiles planning docs into cached `epic-{N}-context.md` for story implementation (#2218)
+* Previous story continuity in quick-dev: load completed spec from same epic as implementation context (#2201)
+* Planning artifact awareness in quick-dev: selectively load PRD, architecture, UX, and epics docs for context-informed specs (#2185)
+* One-shot route now generates lightweight spec trace file for consistent artifact tracking (#2121)
+* Improve checkpoint-preview UX with clickable spec paths, external edit detection, and missing-file halt (#2217)
+* Add Junie (JetBrains AI) platform support (#2142)
+* Restore KiloCoder support with native-skills installation (#2151)
+* Add bmad-help support for llms.txt general questions (#2230)
+
+### ♻️ Refactoring
+
+* Consolidate party-mode into single SKILL.md with real subagent spawning via Agent tool, replacing multi-file workflow architecture (#2160)
+
+### 🐛 Bug Fixes
+
+* Fix version display bug where marketplace.json walk-up reported wrong version (#2233)
+* Fix checkpoint-preview step-05 advancing without user confirmation by adding explicit HALT (#2184)
+* Address adversarial triage findings: clarify review_mode transitions, label walkthrough branches, fix terse commit handling (#2180)
+* Preserve local custom module sources during quick update (#2172)
+* Support skills/ folder as fallback module source location for bmb compatibility (#2149)
+
+### 🔧 Maintenance
+
+* Overhaul installer branding with responsive BMAD METHOD logo, blue color scheme, unified version sourcing from marketplace.json, and surgical manifest-based skill cleanup (#2223)
+* Stop copying skill prompts to _bmad by default (#2182)
+* Add Python 3.10+ and uv as documented prerequisites (#2221)
+
+### 📚 Documentation
+
+* Complete Czech (cs-CZ) documentation translation (#2134)
+* Complete Vietnamese (vi-VN) documentation translation (#2110, #2192)
+* Rewrite get-answers-about-bmad as 1-2-3 escalation flow, remove deprecated references (#2213)
+* Add checkpoint-preview explainer page and workflow diagram (#2183)
+* Update docs theme to match bmadcode.com with responsive logo and blue color scheme (#2176)
+
+## v6.2.2 - 2026-03-25
+
+### ♻️ Refactoring
+
+* Modernize module-help CSV to 13-column format with `after`/`before` dependency graph replacing sequence numbers (#2120)
+* Rewrite bmad-help from procedural 8-step execution to outcome-based skill design (~50% shorter) (#2120)
+
+### 🐛 Bug Fixes
+
+* Update bmad-builder module-definition path from `src/module.yaml` to `skills/module.yaml` for bmad-builder v1.2.0 compatibility (#2126)
+* Fix eslint config to ignore gitignored lock files (#2120)
+
+### 📚 Documentation
+
+* Close Epic 4.5 explanation gaps in Chinese (zh-CN): normalize command naming to current `bmad-*` convention and add cross-links across 9 explanation pages (#2102)
+
+## v6.2.1 - 2026-03-24
+
+### 🎁 Highlights
+
+* Full rewrite of code-review skill with sharded step-file architecture, three parallel review layers (Blind Hunter, Edge Case Hunter, Acceptance Auditor), and interactive post-review triage (#2007, #2013, #2055)
+* Quick Dev workflow overhaul: smart intent cascade, self-check gate, VS Code integration, clickable spec links, and spec rename (#2105, #2104, #2039, #2085, #2109)
+* Add review trail generation with clickable `path:line` stops in spec file (#2033)
+* Add clickable spec links using spec-file-relative markdown format (#2085, #2049)
+* Preserve tracking identifiers in spec slug derivation (#2108)
+* Deterministic skill validator with 19 rules across 6 categories, integrated into CI (#1981, #1982, #2004, #2002, #2051)
+* Complete French (fr-FR) documentation translation (#2073)
+* Add Ona platform support (#1968)
+* Rename tech-spec → spec across templates and all documentation (#2109)
+
+### 📚 Documentation
+
+* Complete French (fr-FR) translation of all documentation with workflow diagrams (#2073)
+* Refine Chinese (zh-CN) documentation: epic stories, how-to guides, getting-started, entry copy, help, anchor links (#2092–#2099, #2072)
+* Add Chinese translation for core-tools reference (#2002)
+
+## v6.2.0 - 2026-03-15
+
+### 🎁 Highlights
+
+* Fix manifest generation so BMad Builder installs correctly when a module has no agents (#1998)
+* Prototype preview of bmad-product-brief-preview skill — try `/bmad-product-brief-preview` and share feedback! (#1959)
+* All skills now use native skill directory format for improved modularity and maintainability (#1931, #1945, #1946, #1949, #1950, #1984, #1985, #1988, #1994)
+
+### 🎁 Features
+
+* Rewrite code-review skill with sharded step-file architecture and auto-detect review intent from invocation args (#2007, #2013)
+* Add inference-based skill validator with comprehensive rules for naming, variables, paths, and invocation syntax (#1981)
+* Add REF-03 skill invocation language rule and PATH-05 skill encapsulation rule to validator (#2004)
+
+### 🐛 Bug Fixes
+
+* Validation pass 2 — fix path, variable, and sequence issues across 32 files (#2008)
+* Replace broken party-mode workflow refs with skill syntax (#2000)
+* Improve bmad-help description for accurate trigger matching (#2012)
+* Point zh-cn doc links to Chinese pages instead of English (#2010)
+* Validation cleanup for bmad-quick-flow (#1997), 6 skills batch (#1996), bmad-sprint-planning (#1995), bmad-retrospective (#1993), bmad-dev-story (#1992), bmad-create-story (#1991), bmad-code-review (#1990), bmad-create-epics-and-stories (#1989), bmad-create-architecture (#1987), bmad-check-implementation-readiness (#1986), bmad-create-ux-design (#1983), bmad-create-product-brief (#1982)
+
+### 🔧 Maintenance
+
+* Normalize skill invocation syntax to `Invoke the skill` pattern repo-wide (#2004)
+
+### 📚 Documentation
+
+* Add Chinese translation for core-tools reference (#2002)
+* Update version hint, TEA module link, and HTTP→HTTPS links in Chinese README (#1922, #1921)
+
+## [6.1.0] - 2026-03-12
+
+### Highlights
+
+* Whiteport Design Studio (WDS) module enabled in the installer
+* Support @next installation channel (`npx bmad-method@next install`) — get the latest tip of main instead of waiting for the next stable published version
+* Everything now installs as a skill — all workflows, agents, and tasks converted to markdown with SKILL.md entrypoints (not yet optimized skills, but unified format)
+* An experimental preview of the new Quick Dev is available, which will become the main Phase 4 development tool
+* Edge Case Hunter added as a parallel code review layer in Phase 4, improving code quality by exhaustively tracing branching paths and boundary conditions (#1791)
+* Documentation now available in Chinese (zh-CN) with complete translation (#1822, #1795)
+
+### 💥 Breaking Changes
+
+* Convert entire BMAD method to skills-based architecture with unified skill manifests (#1834)
+* Convert all core workflows from YAML+instructions to single workflow.md format
+* Migrate all remaining platforms to native Agent Skills format (#1841)
+* Remove legacy YAML/XML workflow engine plumbing (#1864)
+
+### 🎁 Features
+
+* Add Pi coding agent as supported platform (#1854)
+* Add unified skill scanner decoupled from legacy collectors (#1859)
+* Add continuous delivery workflows for npm publishing with trusted OIDC publishing (#1872)
+
+### ♻️ Refactoring
+
+* Update terminology from "commands" to "skills" across all documentation (#1850)
+
+### 🐛 Bug Fixes
+
+* Fix code review removing mandatory minimum issue count that caused infinite review loops (#1913)
+* Fix silent loss of brainstorming ideas in PRD by adding reconciliation step (#1914)
+* Reduce npm tarball from 533 to 348 files (91% size reduction, 6.2 MB → 555 KB) via .npmignore (#1900)
+* Fix party-mode skill conversion review findings (#1919)
+
+---
+
+## [6.0.4]
+
+### 🎁 Features
+
+* Add edge case hunter review task - new reusable review task that exhaustively traces branching paths and boundary conditions in code, reporting only unhandled gaps. Method-driven analysis complementary to adversarial review (#1790)
+
+### 🐛 Bug Fixes
+
+* Fix brainstorming to not overwrite previous sessions; now prompts to continue existing brainstorming or start a new one when older brainstorming sessions are found
+* Fix installer templates - replace legacy `@` path prefixes with explicit `{project-root}` syntax for consistency (#1769)
+* Fix edge case hunter - remove zero-findings halt condition that was pressuring the LLM to hallucinate findings when none legitimately exist (#1797)
+* Fix broken docs domain references in README and GitHub issue templates (#1777)
+
+---
+
+## [6.0.3]
+
+### 🎁 Features
+
+* Add bmad-os-root-cause-analysis skill for analyzing bug-fix commits and producing structured root cause analysis reports with pyramid communication format (#1741)
+
+### 🐛 Bug Fixes
+
+* Fix installer to refuse installation when ancestor directory has BMAD commands, preventing duplicate command autocompletion in nested directories (#1735)
+* Fix OpenCode integration by replacing unsupported `name` frontmatter with `mode: all` and update directory names to plural form (#1764)
+* Fix CSV manifest pipeline double-escaping of quotes that was corrupting output files; switch Gemini templates to single quotes (#1746)
+* Fix workflow descriptions to use proper quotes so they format better in skill conversion and don't break yaml front matter
+* Fix workflow help task chaining by removing ambiguous "with-argument" clause that caused LLMs to misinterpret help.md as skill calls (#1740)
+
+### ♻️ Refactoring
+
+* Standardize all workflow descriptions to use proper quotes to prevent breaking command or skill front matter during skill conversion
+
+### 📚 Documentation
+
+* Fix broken TEA hyperlinks to point to new repository URL (#1772)
+* Rebrand BMAD acronym to "Build More Architect Dreams" across documentation (#1765)
+
+---
+
+## [6.0.2]
+
+### 🎁 Features
+
+* Add CodeBuddy platform support with installer configuration (#1483)
+* Add LLM audit prompt for file reference conventions - new audit tool using parallel subagents (#1720)
+* Migrate Codex installer from `.codex/prompts` to `.agents/skills` format to align with Codex CLI changes (#1729)
+* Convert review-pr and audit-file-refs tools to proper bmad-os skills with slash commands `bmad-os-review-pr` and `bmad-os-audit-file-refs` (#1732)
+
+### 🐛 Bug Fixes
+
+* Fix 24 broken step references in create-architecture workflow after directory rename (#1734)
+* Fix step file path references in check-implementation-readiness workflow (#1709, #1716)
+* Fix 3 broken file references and enable strict file reference validation in CI (#1717)
+* Fix Rovo Dev integration with custom installer that generates prompts.yml manifest (#1701)
+* Fix 104 relative step file references to use standardized `{project-root}/_bmad/` paths across 68 files (#1722)
+* Fix code fence imbalance in step-03-starter.md that caused rendering issues (#1724)
+* Remove Windsurf from recommended/preferred IDEs list (#1727)
+* Fix default Codex install location from global to project for better defaults (#1698)
+* Add npx cache workaround to Quick Start for stale beta versions (#1685)
+* Add language instructions to replace placeholder text in Research overview (#1703)
+* Ignore `.junie/` IDE integration folder in git and prettier configs (#1719)
+
+### ♻️ Refactoring
+
+* Update open source tool skills structure for future plugin migration
+* Standardize all workflow descriptions for skill generation with concise format and explicit trigger phrases
+* Remove `disable-model-invocation` flag from all IDE installer templates to enable workflow skill calls
+
+### 📚 Documentation
+
+* Elevate `bmad-help` as primary on-ramp across all documentation
+* Update workflow names with `bmad-bmm-` prefix and standardize table formatting
+* Clarify phase routing and catalog path in help task
+
+---
+
+## [6.0.0]
+
+V6 Stable Release! The End of Beta!
+
+### 🎁 Features
+
+* Add PRD workflow steps 2b (vision/differentiators) and 2c (executive summary) for more complete product requirements documentation
+* Add new `bmad uninstall` command with interactive and non-interactive modes for selective component removal
+* Add dedicated GitHub Copilot installer that generates enriched `.agent.md`, `.prompt.md` files and project configuration
+* Add TEA browser automation prerequisite prompts to guide Playwright CLI/MCP setup after configuration
+
+### 🐛 Bug Fixes
+
+* Fix version comparison to use semantic versioning, preventing incorrect downgrade recommendations to older beta versions
+* Fix `--custom-content` flag to properly populate sources and selected files in module config
+* Fix module configuration UX messaging to show accurate completion status and improve feedback timing
+* Fix changelog URL in installer start message for proper GitHub resolution
+* Remove incorrect `mode: primary` from OpenCode agent template and restore `name` field across all templates
+* Auto-discover PRD files in validate-prd workflow to reduce manual path input
+* Fix installer non-interactive mode hanging and improve IDE configuration handling during updates
+* Fix workflow-level config.yaml copying for custom content modules
+
+### ♻️ Refactoring
+
+* Remove alias variables from Phase 4 workflows, use canonical `{implementation_artifacts}` and `{planning_artifacts}`
+* Add missing `project_context` references to workflows for consistency
+
+### 📚 Documentation
+
+* Add post-install notes documentation for modules
+* Improve project-context documentation and fix folder structure
+* Add BMad Builder link to index for extenders
+
+---
+
+## [6.0.0-Beta.8]
+
+**Release: February 8, 2026**
+
+### 🌟 Key Highlights
+
+1. **Non-Interactive Installation** — Full CI/CD support with 10 new CLI flags for automated deployments
+2. **Complete @clack/prompts Migration** — Unified CLI experience with consolidated installer output
+3. **CSV File Reference Validation** — Extended Layer 1 validator to catch broken workflow references in CSV files
+4. **Kiro IDE Support** — Standardized config-driven installation, replacing custom installer
+
+### 🎁 Features
+
+* **Non-Interactive Installation** — Added `--directory`, `--modules`, `--tools`, `--custom-content`, `--user-name`, `--communication-language`, `--document-output-language`, `--output-folder`, and `-y/--yes` flags for CI/CD automation (#1520)
+* **CSV File Reference Validation** — Extended validator to scan `.csv` files for broken workflow references, checking 501 references across 212 files (#1573)
+* **Kiro IDE Support** — Replaced broken custom installer with config-driven templates using `#[[file:...]]` syntax and `inclusion: manual` frontmatter (#1589)
+* **OpenCode Template Consolidation** — Combined split templates with `mode: primary` frontmatter for Tab-switching support, fixing agent discovery (#1556)
+* **Modules Reference Page** — Added official external modules reference documentation (#1540)
+
+### 🐛 Bug Fixes
+
+* **Installer Streamlining** — Removed "None - Skip module installation" option, eliminated ~100 lines of dead code, and added ESM/.cjs support for module installers (#1590)
+* **CodeRabbit Workflow** — Changed `pull_request` to `pull_request_target` to fix 403 errors and enable reviews on fork PRs (#1583)
+* **Party Mode Return Protocol** — Added RETURN PROTOCOL to prevent lost-in-the-middle failures after Party Mode completes (#1569)
+* **Spacebar Toggle** — Fixed SPACE key not working in autocomplete multiselect prompts for tool/IDE selection (#1557)
+* **OpenCode Agent Routing** — Fixed agents installing to wrong directory by adding `targets` array for routing `.opencode/agent/` vs `.opencode/command/` (#1549)
+* **Technical Research Workflow** — Fixed step-05 routing to step-06 and corrected `stepsCompleted` values (#1547)
+* **Forbidden Variable Removal** — Removed `workflow_path` variable from 16 workflow step files (#1546)
+* **Kilo Installer** — Fixed YAML formatting issues by trimming activation header and converting to yaml.parse/stringify (#1537)
+* **bmad-help** — Now reads project-specific docs and respects `communication_language` setting (#1535)
+* **Cache Errors** — Removed `--prefer-offline` npm flag to prevent stale cache errors during installation (#1531)
+
+### ♻️ Refactoring
+
+* **Complete @clack/prompts Migration** — Migrated 24 files from legacy libraries (ora, chalk, boxen, figlet, etc.), replaced ~100 console.log+chalk calls, consolidated installer output to single spinner, and removed 5 dependencies (#1586)
+* **Downloads Page Removal** — Removed downloads page, bundle generation, and archiver dependency in favor of GitHub's native archives (#1577)
+* **Workflow Verb Standardization** — Replaced "invoke/run" with "load and follow/load" in review workflow prompts (#1570)
+* **Documentation Language** — Renamed "brownfield" to "established projects" and flattened directory structure for accessibility (#1539)
+
+### 📚 Documentation
+
+* **Comprehensive Site Review** — Fixed broken directory tree diagram, corrected grammar/capitalization, added SEO descriptions, and reordered how-to guides (#1578)
+* **SEO Metadata** — Added description front matter to 9 documentation pages for search engine optimization (#1566)
+* **PR Template** — Added pull request template for consistent PR descriptions (#1554)
+* **Manual Release Cleanup** — Removed broken manual-release workflow and related scripts (#1576)
+
+### 🔧 Maintenance
+
+* **Dual-Mode AI Code Review** — Configured Augment Code (audit mode) and CodeRabbit (adversarial mode) for improved code quality (#1511)
+* **Package-Lock Sync** — Cleaned up 471 lines of orphaned dependencies after archiver removal (#1580)
+
+---
+
+## [6.0.0-Beta.7]
+
+**Release: February 4, 2026**
+
+### 🌟 Key Highlights
+
+1. **Direct Workflow Invocation** — Agent workflows can now be run directly via slash commands instead of only through agent orchestration
+2. **Installer Workflow Support** — Installer now picks up `workflow-*.md` files, enabling multiple workflow files per directory
+
+### 🎁 Features
+
+* **Slash Command Workflow Access** — Research and PRD workflows now accessible via direct slash commands: `/domain-research`, `/market-research`, `/technical-research`, `/create-prd`, `/edit-prd`, `/validate-prd` (bd620e38, 731bee26)
+* **Version Checking** — CLI now checks npm for newer versions and displays a warning banner when updates are available (d37ee7f2)
+
+### ♻️ Refactoring
+
+* **Workflow File Splitting** — Split monolithic `workflow.md` files into specific `workflow-*.md` files for individual workflow invocation (bd620e38)
+* **Installer Multi-Workflow Support** — Installer manifest generator now supports `workflow-*.md` pattern, allowing multiple workflow files per directory (731bee26)
+* **Internal Skill Renaming** — Renamed internal project skills to use `bmad-os-` prefix for consistent naming (5276d58b)
+
+---
+
+## [6.0.0-Beta.6]
+
+**Release: February 4, 2026**
+
+### 🌟 Key Highlights
+
+1. **Cross-File Reference Validator**: Comprehensive tool to detect broken file references, preventing 59 known bugs (~25% of historical issues)
+2. **New AutocompleteMultiselect Prompt**: Searchable multi-select with improved tool/IDE selection UX
+3. **Critical Installer Fixes**: Windows CRLF parsing, Gemini CLI TOML support, file extension preservation
+4. **Codebase Cleanup**: Removed dead Excalidraw/flattener artifacts (-3,798 lines)
+
+### 🎁 Features
+
+* **Cross-File Reference Validator** — Validates ~483 references across ~217 source files, detecting absolute path leaks and broken references (PR #1494)
+* **AutocompleteMultiselect Prompt** — Upgraded `@clack/prompts` to v1.0.0 with custom searchable multiselect, Tab-to-fill-placeholder behavior, and improved tool/IDE selection UX (PR #1514)
+* **OT Domains** — Added `process_control` and `building_automation` domains with high complexity ratings (PR #1510)
+* **Documentation Reference Pages** — Added `docs/reference/agents.md`, `commands.md`, and `testing.md` (PR #1525)
+
+### 🐛 Bug Fixes
+
+* **Critical Installer Fixes** — Fixed CRLF line ending parsing on Windows, Gemini CLI TOML support, file extension preservation, Codex task generation, Windows path handling, and CSV parsing (PR #1492)
+* **Double Tool Questioning** — Removed redundant tool questioning during installation (df176d42)
+* **QA Agent Rename** — Renamed Quinn agent to `qa` for naming consistency (PR #1508)
+* **Documentation Organization** — Fixed documentation ordering and links, hide BMGD pages from main LLM docs (PR #1525)
+
+### ♻️ Refactoring
+
+* **Excalidraw/Flattener Removal** — Removed dead artifacts no longer supported beyond beta: Excalidraw workflows, flattener tool, and 12+ diagram creation workflows (-3,798 lines) (f699a368)
+* **Centralized Constants** — Centralized `BMAD_FOLDER_NAME` to reduce hardcoded strings (PR #1492)
+* **Cross-Platform Paths** — Fixed path separator inconsistencies in agent IDs (PR #1492)
+
+### 📚 Documentation
+
+* **BMGD Diataxis Refactor** — Refactored BMGD documentation using Diataxis principles for better organization (PR #1502)
+* **Generate Project Context** — Restored `generate-project-context` workflow for brownfield project analysis (PR #1491)
+
+### 🔧 Maintenance
+
+* **Dependency Updates** — Upgraded `@clack/prompts` from v0.11.0 to v1.0.0 and added `@clack/core` (PR #1514)
+* **CI Integration** — Added `validate:refs` to CI quality workflow with warning annotations (PR #1494)
+
+---
+
+## [6.0.0-Beta.5]
+
+### 🎁 Features
+
+* **Add generate-project-context workflow** — New 3-step workflow for project context generation, integrated with quick-flow-solo-dev agent
+* **Shard market research customer analysis** — Refactor monolithic customer insights into 4-step detailed customer behavior analysis workflow
+
+### 🐛 Bug Fixes
+
+* **Fix npm install peer dependency issues** — Add `.npmrc` with `legacy-peer-deps=true`, update Starlight to 0.37.5, and add `--legacy-peer-deps` flag to module installer (PR #1476)
+* **Fix leaked source paths in PRD validation report** — Replace absolute `/src/core/` paths with `{project-root}/_bmad/core/` (#1481)
+* **Fix orphaned market research customer analysis** — Connect step-01-init to step-02-customer-behavior to complete workflow sharding (#1486)
+* **Fix duplicate 2-letter brainstorming code** — Change BS to BSP to resolve conflict with cis Brainstorming module
+* **Fix tech writer sidecar functionality** — Enable proper sidecar operation (#1487)
+* **Fix relative paths in workflow steps** — Correct paths in step-11-polish (#1497) and step-e-04-complete (#1498)
+* **Fix party-mode workflow file extension** — Correct extension in workflow.xml (#1499)
+* **Fix generated slash commands** — Add `disable-model-invocation` to all generated commands (#1501)
+* **Fix agent scan and help CSV files** — Correct module-help.csv entries
+* **Fix HELP_STEP placeholder replacement** — Fix placeholder not replaced in compiled agents, fix hardcoded path, fix single quote (#1437)
+
+### 📚 Documentation
+
+* **Add exact slash commands to Getting Started guide** — Provide precise command examples for users (#1505)
+* **Remove .claude/commands from version control** — Commands are generated, not tracked (#1506)
+
+### 🔧 Maintenance
+
+* **Update Starlight to 0.37.5** — Latest version with peer dependency compatibility
+* **Add GitHub issue templates** — New bug-report.yaml and documentation.yaml templates
+
+---
+
+## [6.0.0-Beta.4]
+
+### 🐛 Bug Fixes
+
+- **Activation steps formatting fix**: Fixed missing opening quote that caused infrequent menu rendering issues
+- **Custom module installation fix**: Added missing yaml require in manifest.js to fix custom module installation
+
+---
+
+## [6.0.0-Beta.3]
+
+### 🌟 Key Highlights
+
+1. **SDET Module Replaces TEA**: TEA module removed from core, SDET module added with "automate" workflow for test automation
+2. **Gemini CLI TOML Support**: IDE integration now supports the TOML config format used by Gemini CLI
+3. **File System Sprint Status**: Default project_key support for file-system based sprint status tracking
+
+### 🔧 Features & Improvements
+
+**Module Changes:**
+- **TEA Module Moved to External** (#1430, #1443): The TEA module is now external. SDET module added with a single "automate" workflow focused on test automation
+- **SDET Module**: New module with streamlined test automation capabilities
+
+**IDE Integration:**
+- **Gemini CLI TOML Format** (#1431): Previous update accidentally switched Gemini to md instead of toml.
+
+**Sprint Status:**
+- **Default project_key** (#1446): File-system based sprint status now uses a default project_key so certain LLMs do not complain
+
+### 🐛 Bug Fixes
+
+- **Quick-flow workflow path fix** (#1368): Fixed incorrect workflow_path in bmad-quick-flow/quick-spec steps (step-01, step-02, step-03) - changed from non-existent 'create-tech-spec' to correct 'quick-spec'
+- **PRD edit flow paths**: Fixed path references in PRD editing workflow
+- **Agent file handling**: Changes to prevent double agent files and use .agent.md file extensions
+- **README link fix**: Corrected broken documentation links
+
+## [6.0.0-Beta.2]
+
+- Fix installer so commands match what is installed, centralize most ide into a central file instead of separate files for each ide.
+- Specific IDEs may still need udpates, but all is config driven now and should be easier to maintain
+- Kiro still needs updates, but its been in this state since contributed, will investigate soon
+- Any version older than Beta.0 will recommend removal and reinstall to project. From later alphas though its sufficient to quick update if still desired, but best is just start fresh with Beta.
+
+## [6.0.0-Beta.1]
+
+**Release: January 2026 - Alpha to Beta Transition**
+
+### 🎉 Beta Release
+
+- **Transition from Alpha to Beta**: BMad Method is now in Beta! This marks a significant milestone in the framework's development
+- **NPM Default Tag**: Beta versions are now published with the `latest` tag, making `npx bmad-method` serve the beta version by default
+
+### 🌟 Key Highlights
+
+1. **bmad-help**: Revolutionary AI-powered guidance system replaces the alpha workflow-init and workflow tracking — introduces full AI intelligence to guide users through workflows, commands, and project context
+2. **Module Ecosystem Expansion**: bmad-builder, CIS (Creative Intelligence Suite), and Game Dev Studio moved to separate repositories for focused development
+3. **Installer Consolidation**: Unified installer architecture with standardized command naming (`bmad-dash-case.md` or `bmad-*-agent-*.md`)
+4. **Windows Compatibility**: Complete migration from Inquirer.js to @clack/prompts for reliable cross-platform support
+
+### 🚀 Major Features
+
+**bmad-help - Intelligent Guidance System:**
+
+- **Replaces**: workflow-init and legacy workflow tracking
+- **AI-Powered**: Full context awareness of installed modules, workflows, agents, and commands
+- **Dynamic Discovery**: Automatically catalogs all available workflows from installed modules
+- **Intelligent Routing**: Guides users to the right workflow or agent based on their goal
+- **IDE Integration**: Generates proper IDE command files for all discovered workflows
+
+**Module Restructuring:**
+
+| Module                                | Status                                            | New Location                                            |
+| ------------------------------------- | ------------------------------------------------- | ------------------------------------------------------- |
+| **bmad-builder**                      | Near beta, with docs and walkthroughs coming soon | `bmad-code-org/bmad-builder`                            |
+| **CIS** (Creative Intelligence Suite) | Published as npm package                          | `bmad-code-org/bmad-module-creative-intelligence-suite` |
+| **Game Dev Studio**                   | Published as npm package                          | `bmad-code-org/bmad-module-game-dev-studio`             |
+
+### 🔧 Installer & CLI Improvements
+
+**UnifiedInstaller Architecture:**
+
+- All IDE installers now use a common `UnifiedInstaller` class
+- Standardized command naming conventions:
+  - Workflows: `bmad-module-workflow-name.md`
+  - Agents: `bmad-module-agent-name.md`
+  - Tasks: `bmad-task-name.md`
+  - Tools: `bmad-tool-name.md`
+- External module installation from npm with progress indicators
+- Module removal on unselect with confirmation
+
+**Windows Compatibility Fix:**
+
+- Replaced Inquirer.js with @clack/prompts to fix arrow key navigation issues on Windows
+- All 91 installer workflows migrated to new prompt system
+
+### 📚 Documentation Updates
+
+**Significant docsite improvements:**
+
+- Interactive workflow guide page (`/workflow-guide`) with track selector
+- TEA documentation restructured using Diátaxis framework (25 docs)
+- Style guide optimized for LLM readers (367 lines, down from 767)
+- Glossary rewritten using table format (123 lines, down from 373)
+- README overhaul with numbered command flows and prominent `bmad-help` callout
+- New workflow map diagram with interactive HTML
+- New editorial review tasks for document quality
+- E2E testing methodology for Game Dev Studio
+
+More documentation updates coming soon.
+
+### 🐛 Bug Fixes
+
+- Fixed TodoMVC URL references to include `/dist/` path
+- Fixed glob pattern normalization for Windows compatibility
+- Fixed YAML indentation in kilo.js customInstructions field
+- Fixed stale path references in check-implementation-readiness workflow
+- Fixed sprint-status.yaml sync in correct-course workflow
+- Fixed web bundler entry point reference
+- Fixed mergeModuleHelpCatalogs ordering after generateManifests
+
+### 📊 Statistics
+
+- **91 commits** since alpha.23
+- **969 files changed** (+23,716 / -91,509 lines)
+- **Net reduction of ~67,793 lines** through cleanup and consolidation
+- **3 major modules** moved to separate repositories
+- **Complete installer refactor** for standardization
+
+---
+
 ## [6.0.0-alpha.23]
 
 **Release: January 11, 2026**
@@ -1039,7 +1681,6 @@ Located in `src/modules/bmb/workflows/agent/data/`:
 
 - **Workflow Vendoring**: Web bundler performs automatic cross-module dependency vendoring
 - **BMGD Module Extraction**: Game development split into standalone 4-phase structure
-- **Enhanced Dependency Resolution**: Better handling of web_bundle: false workflows
 - **Advanced Elicitation Fix**: Added missing CSV files to workflow bundles
 - **Claude Code Fix**: Resolved README slash command installation regression
 

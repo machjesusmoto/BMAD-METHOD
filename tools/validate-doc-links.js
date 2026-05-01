@@ -21,14 +21,14 @@ const path = require('node:path');
 const DOCS_ROOT = path.resolve(__dirname, '../docs');
 const DRY_RUN = !process.argv.includes('--write');
 
-// Regex to match markdown links with site-relative paths
-const LINK_REGEX = /\[([^\]]*)\]\((\/[^)]+)\)/g;
+// Regex to match markdown links with site-relative paths or bare .md references
+const LINK_REGEX = /\[([^\]]*)\]\(((?:\.{1,2}\/|\/)[^)]+|[\w][^)\s]*\.md(?:[?#][^)]*)?)\)/g;
 
 // File extensions that are static assets, not markdown docs
 const STATIC_ASSET_EXTENSIONS = ['.zip', '.txt', '.pdf', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.ico'];
 
 // Custom Astro page routes (not part of the docs content collection)
-const CUSTOM_PAGE_ROUTES = new Set(['/workflow-guide']);
+const CUSTOM_PAGE_ROUTES = new Set([]);
 
 // Regex to extract headings for anchor validation
 const HEADING_PATTERN = /^#{1,6}\s+(.+)$/gm;
@@ -51,7 +51,7 @@ function getMarkdownFiles(dir) {
 
       if (entry.isDirectory()) {
         walk(fullPath);
-      } else if (entry.isFile() && entry.name.endsWith('.md')) {
+      } else if (entry.isFile() && (entry.name.endsWith('.md') || entry.name.endsWith('.mdx'))) {
         files.push(fullPath);
       }
     }
@@ -108,32 +108,68 @@ function extractAnchors(content) {
  * /docs/how-to/installation/install-bmad.md -> docs/how-to/installation/install-bmad.md
  * /how-to/installation/install-bmad/ -> docs/how-to/installation/install-bmad.md or .../index.md
  */
-function resolveLink(siteRelativePath) {
+function resolveLink(siteRelativePath, sourceFile) {
   // Strip anchor and query
   let checkPath = siteRelativePath.split('#')[0].split('?')[0];
 
-  // Strip /docs/ prefix if present (repo-relative links)
+  // Handle relative paths (including bare .md): resolve from source file's directory
+  if (checkPath.startsWith('./') || checkPath.startsWith('../') || (!checkPath.startsWith('/') && checkPath.endsWith('.md'))) {
+    const sourceDir = path.dirname(sourceFile);
+    const resolved = path.resolve(sourceDir, checkPath);
+    // Ensure the resolved path stays within DOCS_ROOT
+    if (!resolved.startsWith(DOCS_ROOT + path.sep) && resolved !== DOCS_ROOT) return null;
+    if (fs.existsSync(resolved) && fs.statSync(resolved).isFile()) return resolved;
+    if (fs.existsSync(resolved + '.md')) return resolved + '.md';
+    if (fs.existsSync(resolved + '.mdx')) return resolved + '.mdx';
+    // Directory: check for index.md or index.mdx
+    if (fs.existsSync(resolved) && fs.statSync(resolved).isDirectory()) {
+      const indexFile = path.join(resolved, 'index.md');
+      const indexMdxFile = path.join(resolved, 'index.mdx');
+      if (fs.existsSync(indexFile)) return indexFile;
+      if (fs.existsSync(indexMdxFile)) return indexMdxFile;
+    }
+    return null;
+  }
+
+  // Strip /docs/ prefix if present (legacy absolute links)
   if (checkPath.startsWith('/docs/')) {
     checkPath = checkPath.slice(5); // Remove '/docs' but keep leading '/'
   }
 
   if (checkPath.endsWith('/')) {
-    // Could be file.md or directory/index.md
-    const asFile = path.join(DOCS_ROOT, checkPath.slice(0, -1) + '.md');
+    // Could be file.md, file.mdx, or directory/index.md/mdx
+    const baseName = checkPath.slice(0, -1);
+    const asMd = path.join(DOCS_ROOT, baseName + '.md');
+    const asMdx = path.join(DOCS_ROOT, baseName + '.mdx');
     const asIndex = path.join(DOCS_ROOT, checkPath, 'index.md');
+    const asIndexMdx = path.join(DOCS_ROOT, checkPath, 'index.mdx');
 
-    if (fs.existsSync(asFile)) return asFile;
+    if (fs.existsSync(asMd)) return asMd;
+    if (fs.existsSync(asMdx)) return asMdx;
     if (fs.existsSync(asIndex)) return asIndex;
+    if (fs.existsSync(asIndexMdx)) return asIndexMdx;
     return null;
   }
 
   // Direct path (e.g., /path/file.md)
   const direct = path.join(DOCS_ROOT, checkPath);
-  if (fs.existsSync(direct)) return direct;
+  if (fs.existsSync(direct) && fs.statSync(direct).isFile()) return direct;
 
   // Try with .md extension
   const withMd = direct + '.md';
   if (fs.existsSync(withMd)) return withMd;
+
+  // Try with .mdx extension
+  const withMdx = direct + '.mdx';
+  if (fs.existsSync(withMdx)) return withMdx;
+
+  // Directory without trailing slash: check for index.md or index.mdx
+  if (fs.existsSync(direct) && fs.statSync(direct).isDirectory()) {
+    const indexFile = path.join(direct, 'index.md');
+    const indexMdxFile = path.join(direct, 'index.mdx');
+    if (fs.existsSync(indexFile)) return indexFile;
+    if (fs.existsSync(indexMdxFile)) return indexMdxFile;
+  }
 
   return null;
 }
@@ -144,7 +180,7 @@ function resolveLink(siteRelativePath) {
 function findFileWithContext(brokenPath) {
   // Extract filename and parent directory from the broken path
   // e.g., /tutorials/getting-started/foo/ -> parent: getting-started, file: foo.md
-  const cleanPath = brokenPath.replace(/\/$/, '').replace(/^\//, '');
+  const cleanPath = brokenPath.replace(/\/$/, '').replace(/^(\.\.\/|\.\/|\/)+/, '');
   const parts = cleanPath.split('/');
   const fileName = parts.at(-1) + '.md';
   const parentDir = parts.length > 1 ? parts.at(-2) : null;
@@ -219,7 +255,7 @@ function processFile(filePath) {
     }
 
     // Validate the link target exists
-    const targetFile = resolveLink(linkPath);
+    const targetFile = resolveLink(linkPath, filePath);
 
     if (!targetFile) {
       // Link is broken - try to find the file

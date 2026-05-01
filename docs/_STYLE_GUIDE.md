@@ -1,22 +1,23 @@
 ---
 title: "Documentation Style Guide"
+description: Project-specific documentation conventions based on Google style and Diataxis structure
 ---
 
 This project adheres to the [Google Developer Documentation Style Guide](https://developers.google.com/style) and uses [Diataxis](https://diataxis.fr/) to structure content. Only project-specific conventions follow.
 
 ## Project-Specific Rules
 
-| Rule | Specification |
-|------|---------------|
-| No horizontal rules (`---`) | Fragments reading flow |
-| No `####` headers | Use bold text or admonitions instead |
-| No "Related" or "Next:" sections | Sidebar handles navigation |
-| No deeply nested lists | Break into sections instead |
-| No code blocks for non-code | Use admonitions for dialogue examples |
-| No bold paragraphs for callouts | Use admonitions instead |
-| 1-2 admonitions per section max | Tutorials allow 3-4 per major section |
-| Table cells / list items | 1-2 sentences max |
-| Header budget | 8-12 `##` per doc; 2-3 `###` per section |
+| Rule                             | Specification                            |
+| -------------------------------- | ---------------------------------------- |
+| No horizontal rules (`---`)      | Fragments reading flow                   |
+| No `####` headers                | Use bold text or admonitions instead     |
+| No "Related" or "Next:" sections | Sidebar handles navigation               |
+| No deeply nested lists           | Break into sections instead              |
+| No code blocks for non-code      | Use admonitions for dialogue examples    |
+| No bold paragraphs for callouts  | Use admonitions instead                  |
+| 1-2 admonitions per section max  | Tutorials allow 3-4 per major section    |
+| Table cells / list items         | 1-2 sentences max                        |
+| Header budget                    | 8-12 `##` per doc; 2-3 `###` per section |
 
 ## Admonitions (Starlight Syntax)
 
@@ -40,31 +41,31 @@ Critical warnings only — data loss, security issues
 
 ### Standard Uses
 
-| Admonition | Use For |
-|------------|---------|
-| `:::note[Prerequisites]` | Dependencies before starting |
-| `:::tip[Quick Path]` | TL;DR summary at document top |
-| `:::caution[Important]` | Critical caveats |
-| `:::note[Example]` | Command/response examples |
+| Admonition               | Use For                       |
+| ------------------------ | ----------------------------- |
+| `:::note[Prerequisites]` | Dependencies before starting  |
+| `:::tip[Quick Path]`     | TL;DR summary at document top |
+| `:::caution[Important]`  | Critical caveats              |
+| `:::note[Example]`       | Command/response examples     |
 
 ## Standard Table Formats
 
 **Phases:**
 
 ```md
-| Phase | Name | What Happens |
-|-------|------|--------------|
-| 1 | Analysis | Brainstorm, research *(optional)* |
-| 2 | Planning | Requirements — PRD or tech-spec *(required)* |
+| Phase | Name     | What Happens                                 |
+| ----- | -------- | -------------------------------------------- |
+| 1     | Analysis | Brainstorm, research *(optional)*            |
+| 2     | Planning | Requirements — PRD or spec *(required)* |
 ```
 
-**Commands:**
+**Skills:**
 
 ```md
-| Command | Agent | Purpose |
-|---------|-------|---------|
-| `*workflow-init` | Analyst | Initialize a new project |
-| `*prd` | PM | Create Product Requirements Document |
+| Skill        | Agent   | Purpose                              |
+| ------------ | ------- | ------------------------------------ |
+| `bmad-brainstorming` | Analyst | Brainstorm a new project             |
+| `bmad-create-prd`        | PM      | Create Product Requirements Document |
 ```
 
 ## Folder Structure Blocks
@@ -74,10 +75,12 @@ Show in "What You've Accomplished" sections:
 ````md
 ```
 your-project/
-├── _bmad/                         # BMad configuration
+├── _bmad/                                   # BMad configuration
 ├── _bmad-output/
-│   ├── PRD.md                     # Your requirements document
-│   └── bmm-workflow-status.yaml   # Progress tracking
+│   ├── planning-artifacts/
+│   │   └── PRD.md                           # Your requirements document
+│   ├── implementation-artifacts/
+│   └── project-context.md                   # Implementation rules (optional)
 └── ...
 ```
 ````
@@ -96,7 +99,7 @@ your-project/
 9. Step 2: [Second Major Task]
 10. Step 3: [Third Major Task]
 11. What You've Accomplished (summary + folder structure)
-12. Quick Reference (commands table)
+12. Quick Reference (skills table)
 13. Common Questions (FAQ format)
 14. Getting Help (community links)
 15. Key Takeaways (tip admonition)
@@ -108,7 +111,7 @@ your-project/
 - [ ] "What You'll Learn" section present
 - [ ] Prerequisites in admonition
 - [ ] Quick Path TL;DR admonition at top
-- [ ] Tables for phases, commands, agents
+- [ ] Tables for phases, skills, agents
 - [ ] "What You've Accomplished" section present
 - [ ] Quick Reference table present
 - [ ] Common Questions section present
@@ -141,13 +144,13 @@ your-project/
 
 ### Types
 
-| Type | Example |
-|------|---------|
-| **Index/Landing** | `core-concepts/index.md` |
-| **Concept** | `what-are-agents.md` |
-| **Feature** | `quick-flow.md` |
-| **Philosophy** | `why-solutioning-matters.md` |
-| **FAQ** | `brownfield-faq.md` |
+| Type              | Example                       |
+| ----------------- | ----------------------------- |
+| **Index/Landing** | `core-concepts/index.md`      |
+| **Concept**       | `what-are-agents.md`          |
+| **Feature**       | `quick-dev.md`                |
+| **Philosophy**    | `why-solutioning-matters.md`  |
+| **FAQ**           | `established-projects-faq.md` |
 
 ### General Template
 
@@ -217,14 +220,14 @@ your-project/
 
 ### Types
 
-| Type | Example |
-|------|---------|
-| **Index/Landing** | `workflows/index.md` |
-| **Catalog** | `agents/index.md` |
-| **Deep-Dive** | `document-project.md` |
-| **Configuration** | `core-tasks.md` |
-| **Glossary** | `glossary/index.md` |
-| **Comprehensive** | `bmgd-workflows.md` |
+| Type              | Example               |
+| ----------------- | --------------------- |
+| **Index/Landing** | `workflows/index.md`  |
+| **Catalog**       | `agents/index.md`     |
+| **Deep-Dive**     | `document-project.md` |
+| **Configuration** | `core-tasks.md`       |
+| **Glossary**      | `glossary/index.md`   |
+| **Comprehensive** | `bmgd-workflows.md`   |
 
 ### Reference Index Pages
 
@@ -240,7 +243,7 @@ your-project/
 1. Title + Hook
 2. Items (## for each item)
    - Brief description (one sentence)
-   - **Commands:** or **Key Info:** as flat list
+   - **Skills:** or **Key Info:** as flat list
 3. Universal/Shared (## section) (optional)
 ```
 
@@ -249,7 +252,7 @@ your-project/
 ```text
 1. Title + Hook (one sentence purpose)
 2. Quick Facts (optional note admonition)
-   - Module, Command, Input, Output as list
+   - Module, Skill, Input, Output as list
 3. Purpose/Overview (## section)
 4. How to Invoke (code block)
 5. Key Sections (## for each aspect)
@@ -277,7 +280,7 @@ your-project/
    - Diagram or table showing organization
 3. Major Sections (## for each phase/category)
    - Items (### for each item)
-   - Standardized fields: Command, Agent, Input, Output, Description
+   - Standardized fields: Skill, Agent, Input, Output, Description
 4. Next Steps (optional)
 ```
 
@@ -303,19 +306,19 @@ Starlight generates right-side "On this page" navigation from headers:
 ```md
 ## Category Name
 
-| Term | Definition |
-|------|------------|
-| **Agent** | Specialized AI persona with specific expertise that guides users through workflows. |
+| Term         | Definition                                                                               |
+| ------------ | ---------------------------------------------------------------------------------------- |
+| **Agent**    | Specialized AI persona with specific expertise that guides users through workflows.      |
 | **Workflow** | Multi-step guided process that orchestrates AI agent activities to produce deliverables. |
 ```
 
 ### Definition Rules
 
-| Do | Don't |
-|----|-------|
+| Do                            | Don't                                       |
+| ----------------------------- | ------------------------------------------- |
 | Start with what it IS or DOES | Start with "This is..." or "A [term] is..." |
-| Keep to 1-2 sentences | Write multi-paragraph explanations |
-| Bold term name in cell | Use plain text for terms |
+| Keep to 1-2 sentences         | Write multi-paragraph explanations          |
+| Bold term name in cell        | Use plain text for terms                    |
 
 ### Context Markers
 
@@ -325,7 +328,7 @@ Add italic context at definition start for limited-scope terms:
 - `*BMad Method/Enterprise.*`
 - `*Phase N.*`
 - `*BMGD.*`
-- `*Brownfield.*`
+- `*Established projects.*`
 
 ### Glossary Checklist
 
@@ -350,7 +353,7 @@ Only for BMad Method and Enterprise tracks. Quick Flow skips to implementation.
 
 ### Can I change my plan later?
 
-Yes. The SM agent has a `correct-course` workflow for handling scope changes.
+Yes. The `bmad-correct-course` workflow handles scope changes mid-implementation.
 
 **Have a question not answered here?** [Open an issue](...) or ask in [Discord](...).
 ```
