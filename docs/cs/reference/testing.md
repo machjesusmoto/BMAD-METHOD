@@ -2,7 +2,7 @@
 title: Možnosti testování
 description: Srovnání vestavěného QA agenta (Quinn) s modulem Test Architect (TEA) pro automatizaci testů.
 sidebar:
-  order: 5
+  order: 6
 ---
 
 BMad poskytuje dvě testovací cesty: vestavěného QA agenta pro rychlé generování testů a instalovatelný modul Test Architect pro podnikovou testovací strategii.
@@ -97,7 +97,7 @@ TEA také podporuje prioritizaci P0–P3 založenou na riziku a volitelné integ
 
 Quinn workflow Automate se objevuje ve Fázi 4 (Implementace) mapy workflow BMad Method. Je navržen ke spuštění **po dokončení celého epicu** — jakmile jsou všechny stories v epicu implementovány a zrevidovány. Typická sekvence:
 
-1. Pro každou story v epicu: implementace s Dev (`DS`), pak validace pomocí Code Review (`CR`)
+1. Pro každou story v epicu: implementace pomocí Build (`BD` / `bmad-build`), pak podle potřeby Code Review (`CR`)
 2. Po dokončení epicu: generování testů s Quinnem (`QA`) nebo TEA workflow Automate
 3. Spuštění retrospektivy (`bmad-retrospective`) pro zachycení získaných zkušeností
 

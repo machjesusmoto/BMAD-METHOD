@@ -434,7 +434,7 @@ class ConfigDrivenIdeSetup {
       if (!canonicalId) continue;
 
       // Derive source directory from path column
-      // path is like "_bmad/bmm/workflows/bmad-quick-flow/bmad-quick-dev-new-preview/SKILL.md"
+      // path is like "_bmad/bmm/workflows/bmad-quick-flow/bmad-build-new-preview/SKILL.md"
       // Strip bmadFolderName prefix and join with bmadDir, then get dirname
       const relativePath = record.path.startsWith(bmadPrefix) ? record.path.slice(bmadPrefix.length) : record.path;
       const sourceFile = path.join(bmadDir, relativePath);
@@ -448,9 +448,9 @@ class ConfigDrivenIdeSetup {
       await fs.ensureDir(skillDir);
       this.skillWriteTracker?.add(canonicalId);
 
-      // Copy all skill files, filtering OS/editor artifacts recursively
-      const skipPatterns = new Set(['.DS_Store', 'Thumbs.db', 'desktop.ini']);
-      const skipSuffixes = ['~', '.swp', '.swo', '.bak'];
+      // Copy all skill files, filtering OS/editor artifacts and Python caches recursively
+      const skipPatterns = new Set(['.DS_Store', 'Thumbs.db', 'desktop.ini', '__pycache__']);
+      const skipSuffixes = ['~', '.swp', '.swo', '.bak', '.pyc', '.pyo'];
       const filter = (src) => {
         const name = path.basename(src);
         if (src === sourceDir) return true;
@@ -501,7 +501,7 @@ class ConfigDrivenIdeSetup {
 
     // Build removal set: previously installed skills + removals.txt entries
     let removalSet;
-    if (options.previousSkillIds && options.previousSkillIds.size > 0) {
+    if (options.previousSkillIds) {
       // Install/update flow: use pre-captured skill IDs (before manifest was overwritten)
       removalSet = new Set(options.previousSkillIds);
       if (resolvedBmadDir) {
@@ -547,7 +547,7 @@ class ConfigDrivenIdeSetup {
       // previousSkillIds — full uninstall or per-IDE removal via
       // cleanupByList), don't spare anything; the IDE itself is going away,
       // so its pointers should go with it.
-      const isInstallFlow = options.previousSkillIds && options.previousSkillIds.size > 0;
+      const isInstallFlow = !!options.previousSkillIds;
       const activeSkillIds = isInstallFlow ? await this._readActiveSkillIds(resolvedBmadDir) : new Set();
       const extension = this.installerConfig.commands_extension || '.md';
       await this.cleanupCommandPointers(

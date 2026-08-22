@@ -2,7 +2,7 @@
 title: Skills
 description: Reference for BMad skills — what they are, how they work, and where to find them.
 sidebar:
-  order: 3
+  order: 4
 ---
 
 Skills are pre-built prompts that load agents, run workflows, or execute tasks inside your IDE. The BMad installer generates them from your installed modules at install time. If you later add, remove, or change modules, re-run the installer to keep skills in sync (see [Troubleshooting](#troubleshooting)).
@@ -14,7 +14,7 @@ BMad offers two ways to start work, and they serve different purposes.
 | Mechanism | How you invoke it | What happens |
 | --- | --- | --- |
 | **Skill** | Type the skill name (e.g. `bmad-help`) in your IDE | Directly loads an agent, runs a workflow, or executes a task |
-| **Agent menu trigger** | Load an agent first, then type a short code (e.g. `DS`) | The agent interprets the code and starts the matching workflow while staying in character |
+| **Agent menu trigger** | Load an agent first, then type a short code (e.g. `BD`) | The agent interprets the code and starts the matching workflow while staying in character |
 
 Agent menu triggers require an active agent session. Use skills when you know which workflow you want. Use triggers when you are already working with an agent and want to switch tasks without leaving the conversation.
 
@@ -42,8 +42,8 @@ The installer writes skill files into an IDE-specific directory inside your proj
 | IDE / CLI | Skills directory |
 | --- | --- |
 | Claude Code | `.claude/skills/` |
-| Cursor | `.cursor/skills/` |
-| Windsurf | `.windsurf/skills/` |
+| Cursor | `.agents/skills/` |
+| Windsurf | `.agents/skills/` |
 | Other IDEs | See the installer output for the target path |
 
 Each skill is a directory containing a `SKILL.md` file. For example, a Claude Code installation looks like:
@@ -52,7 +52,7 @@ Each skill is a directory containing a `SKILL.md` file. For example, a Claude Co
 .claude/skills/
 ├── bmad-help/
 │   └── SKILL.md
-├── bmad-create-prd/
+├── bmad-prd/
 │   └── SKILL.md
 ├── bmad-agent-dev/
 │   └── SKILL.md
@@ -80,8 +80,8 @@ Agent skills load a specialized AI persona with a defined role, communication st
 | Example skill | Agent | Role |
 | --- | --- | --- |
 | `bmad-agent-dev` | Amelia (Developer) | Implements stories with strict adherence to specs |
-| `bmad-pm` | John (Product Manager) | Creates and validates PRDs |
-| `bmad-architect` | Winston (Architect) | Designs system architecture |
+| `bmad-agent-pm` | John (Product Manager) | Creates and validates PRDs |
+| `bmad-agent-architect` | Winston (Architect) | Designs system architecture |
 
 See [Agents](./agents.md) for the full list of default agents and their triggers.
 
@@ -91,14 +91,15 @@ Workflow skills run a structured, multi-step process without loading an agent pe
 
 | Example skill | Purpose |
 | --- | --- |
-| `bmad-product-brief` | Create a product brief — guided discovery when your concept is clear |
+| `bmad-product-brief` | Create or update a product brief — guided discovery when your concept is clear |
 | `bmad-prfaq` | [Working Backwards PRFAQ](../explanation/analysis-phase.md#prfaq-working-backwards) challenge to stress-test your product concept |
-| `bmad-create-prd` | Create a Product Requirements Document |
-| `bmad-create-architecture` | Design system architecture |
+| `bmad-prd` | Create, update, or validate a Product Requirements Document |
+| `bmad-ux` | Design user experience |
+| `bmad-architecture` | Design system architecture |
 | `bmad-create-epics-and-stories` | Create epics and stories |
-| `bmad-dev-story` | Implement a story |
+| `bmad-build` | Implement direct intent, an issue, a feature, a fix, or a planned story |
 | `bmad-code-review` | Run a code review |
-| `bmad-quick-dev` | Unified quick flow — clarify intent, plan, implement, review, present |
+| `bmad-build-auto` | Automate one unattended iteration of the Build implementation model |
 
 See [Workflow Map](./workflow-map.md) for the complete workflow reference organized by phase.
 
@@ -120,11 +121,11 @@ bmad-help What are my options for UX design?
 
 **Other Core Tasks and Tools**
 
-The core module includes 11 built-in tools — reviews, compression, brainstorming, document management, and more. See [Core Tools](./core-tools.md) for the complete reference.
+The core module includes 8 built-in tools — help, reviews, refinement, customization, and the thinking skills (brainstorming, forge idea, party mode). See [Core Tools](./core-tools.md) for the complete reference.
 
 ## Naming Convention
 
-All skills use the `bmad-` prefix followed by a descriptive name (e.g., `bmad-agent-dev`, `bmad-create-prd`, `bmad-help`). See [Modules](./modules.md) for available modules.
+All skills use the `bmad-` prefix followed by a descriptive name (e.g., `bmad-agent-dev`, `bmad-prd`, `bmad-help`). See [Modules](./modules.md) for available modules.
 
 ## Troubleshooting
 

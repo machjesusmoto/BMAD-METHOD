@@ -2,7 +2,7 @@
 title: Official Modules
 description: Add-on modules for building custom agents, creative intelligence, game development, and testing
 sidebar:
-  order: 4
+  order: 5
 ---
 
 BMad extends through official modules that you select during installation. These add-on modules provide specialized agents, workflows, and tasks for specific domains beyond the built-in core and BMM (Agile suite).
@@ -43,7 +43,7 @@ AI-powered tools for structured creativity, ideation, and innovation during earl
 
 ## Game Dev Studio
 
-Structured game development workflows adapted for Unity, Unreal, Godot, and custom engines. Supports rapid prototyping through Quick Flow and full-scale production with epic-driven sprints.
+Structured game development workflows adapted for Unity, Unreal, Godot, and custom engines. Supports planning depths from rapid prototyping to full-scale production with epic-driven sprints; implementation converges on Build.
 
 - **Code:** `gds`
 - **npm:** [`bmad-game-dev-studio`](https://www.npmjs.com/package/bmad-game-dev-studio)
@@ -52,7 +52,7 @@ Structured game development workflows adapted for Unity, Unreal, Godot, and cust
 **Provides:**
 
 - Game Design Document (GDD) generation workflow
-- Quick Dev mode for rapid prototyping
+- Game-aware planning and context that feed the standard Build implementation loop
 - Narrative design support for characters, dialogue, and world-building
 - Coverage for 21+ game types with engine-specific architecture guidance
 

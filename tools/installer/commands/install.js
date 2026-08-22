@@ -34,6 +34,8 @@ module.exports = {
     ['--document-output-language <lang>', 'Language for document output (default: English)'],
     ['--output-folder <path>', 'Output folder path relative to project root (default: _bmad-output)'],
     ['--custom-source <sources>', 'Comma-separated Git URLs or local paths to install custom modules from'],
+    ['--shims', 'Install deprecated compatibility shim skills when the selected modules provide them'],
+    ['--no-shims', 'Do not install deprecated compatibility shim skills'],
     ['-y, --yes', 'Accept all defaults and skip prompts where possible'],
     [
       '--channel <channel>',
@@ -74,6 +76,9 @@ module.exports = {
         process.exitCode = ok ? 0 : 1;
         return;
       }
+
+      const { checkWindowsNodeFromWsl } = require('../core/wsl-node-check');
+      await checkWindowsNodeFromWsl();
 
       // Set debug flag as environment variable for all components
       if (options.debug) {

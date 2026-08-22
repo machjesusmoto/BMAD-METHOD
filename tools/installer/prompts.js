@@ -10,6 +10,9 @@
 let _clack = null;
 let _clackCore = null;
 let _picocolors = null;
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 
 /**
  * Lazy-load @clack/prompts (ESM module)
@@ -313,7 +316,9 @@ async function autocompleteMultiselect(options) {
 
       switch (this.state) {
         case 'submit': {
-          return `${title}${color.gray(clack.S_BAR)}  ${color.dim(`${this.selectedValues.length} items selected`)}`;
+          const count = this.selectedValues.length;
+          const emptyHint = count === 0 && options.emptyLabel ? ` (${options.emptyLabel})` : '';
+          return `${title}${color.gray(clack.S_BAR)}  ${color.dim(`${count} item${count === 1 ? '' : 's'} selected${emptyHint}`)}`;
         }
 
         case 'cancel': {
@@ -328,7 +333,18 @@ async function autocompleteMultiselect(options) {
 
           const errorLine = this.state === 'error' ? [`${bar}  ${color.yellow(this.error)}`] : [];
 
-          const headerLines = [...`${title}${bar}`.split('\n'), `${bar}  ${searchDisplay}${matchCount}`, ...noMatchesLine, ...errorLine];
+          const emptyLine =
+            this.selectedValues.length === 0 && options.emptyLabel
+              ? [`${bar}  ${color.dim(`Nothing selected: installs ${options.emptyLabel}`)}`]
+              : [];
+
+          const headerLines = [
+            ...`${title}${bar}`.split('\n'),
+            `${bar}  ${searchDisplay}${matchCount}`,
+            ...noMatchesLine,
+            ...errorLine,
+            ...emptyLine,
+          ];
 
           const footerLines = [`${bar}  ${color.dim(hints.join(' • '))}`, `${barEnd}`];
 
@@ -575,6 +591,88 @@ async function autocomplete(options) {
   return result;
 }
 
+function expandHome(input) {
+  if (!input) return input;
+  if (input === '~') return os.homedir();
+  if (input.startsWith('~/') || input.startsWith('~\\')) {
+    return path.join(os.homedir(), input.slice(2));
+  }
+  return input;
+}
+
+/**
+ * Resolve raw prompt input to an absolute directory path.
+ * Mirrors UI.expandUserPath so what the prompt returns matches what the
+ * installer later resolves.
+ */
+function resolveDirectoryInput(input, options = {}) {
+  const cwd = options.cwd || process.cwd();
+  const rawInput = typeof input === 'string' ? input.trim() : '';
+  // An empty line means "use the default", which is resolved the same way as
+  // typed text so a `~/…` or relative default still returns an absolute path.
+  const effective = rawInput || (options.default || '').trim();
+  if (!effective) return cwd;
+  return path.resolve(cwd, expandHome(effective));
+}
+
+/**
+ * Directory prompt.
+ *
+ * A plain text entry: what is on the input line is what gets submitted,
+ * resolved to an absolute path.
+ *
+ * The line is pre-filled with the default (the current working directory,
+ * which is where installs usually run from) as real editable text rather than
+ * a placeholder, so it can be edited down or extended instead of retyped.
+ * Clearing it and pressing Enter still accepts the default.
+ *
+ * @param {Object} options - Prompt options
+ * @param {string} options.message - Prompt message
+ * @param {string} [options.default] - Default directory, pre-filled on the input line
+ * @param {string} [options.placeholder] - Placeholder shown only if the line is cleared
+ * @param {Function} [options.validate] - Sync validation function
+ * @param {Object} [options.input] - Input stream (defaults to process.stdin; tests inject)
+ * @param {Object} [options.output] - Output stream (defaults to process.stdout; tests inject)
+ * @returns {Promise<string>} Resolved absolute directory path
+ */
+async function directory(options) {
+  const core = await getClackCore();
+  const color = await getPicocolors();
+
+  const prompt = new core.TextPrompt({
+    ...(options.input ? { input: options.input } : {}),
+    ...(options.output ? { output: options.output } : {}),
+    initialValue: options.default,
+    defaultValue: options.default,
+    validate: options.validate,
+    render() {
+      const bar = color.gray('│');
+      const userInput = this.userInput;
+
+      switch (this.state) {
+        case 'submit': {
+          return `${color.gray('◇')}  ${options.message}\n${bar}  ${color.dim(this.value || '')}`;
+        }
+        case 'cancel': {
+          return `${color.gray('◇')}  ${options.message}\n${bar}  ${color.strikethrough(color.dim(userInput || ''))}`;
+        }
+        default: {
+          const placeholder = options.placeholder || options.default;
+          const inputDisplay = userInput ? this.userInputWithCursor : `${color.inverse(color.hidden('_'))}${color.dim(placeholder || '')}`;
+          const lines = [`${color.gray('◆')}  ${options.message}`, `${bar}  ${inputDisplay}`];
+          if (this.state === 'error') lines.push(`${color.yellow('│')}  ${color.yellow(this.error)}`);
+          lines.push(color.gray('└'));
+          return lines.join('\n');
+        }
+      }
+    },
+  });
+
+  const result = await prompt.prompt();
+  await handleCancel(result);
+  return resolveDirectoryInput(result, options);
+}
+
 /**
  * Get the color utility (picocolors instance from @clack/prompts)
  * @returns {Promise<Object>} The color utility (picocolors)
@@ -694,6 +792,9 @@ module.exports = {
   multiselect,
   autocompleteMultiselect,
   autocomplete,
+  directory,
+  // Exported for tests
+  resolveDirectoryInput,
   confirm,
   text,
   password,

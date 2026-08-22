@@ -2,7 +2,7 @@
 title: 'How to Upgrade to v6'
 description: Migrate from BMad v4 to v6
 sidebar:
-  order: 4
+  order: 3
 ---
 
 Use the BMad installer to upgrade from v4 to v6, which includes automatic detection of legacy installations and migration assistance.
@@ -15,7 +15,7 @@ Use the BMad installer to upgrade from v4 to v6, which includes automatic detect
 
 :::note[Prerequisites]
 
-- Node.js 20+
+- Node.js 20.12+
 - Existing BMad v4 installation
   :::
 

@@ -1,5 +1,250 @@
 # Changelog
 
+## v6.11.0 - 2026-08-09
+
+### ✨ Headline
+
+**Quick Dev becomes Build, the one official way BMad implements code.** `bmad-quick-dev` → `bmad-build`, `bmad-dev-auto` → `bmad-build-auto`, the `bmad-create-story` → `bmad-dev-story` pair is deprecated, and Phase 4 is a single chain: `bmad-sprint-planning → bmad-build → bmad-code-review`.
+
+**The skill catalog gets a lot smaller.** Core drops from fourteen skills to eight: three review skills and two editorial skills become lenses on one `bmad-review`, three research skills become `bmad-deep-recon`, and `bmad-document-project` plus `bmad-generate-project-context` become `bmad-project-context`. Every retired ID keeps working through a forwarding shim in `v6-shims/` until the v7 cut.
+
+**Skills stop guessing and start reading evidence.** `bmad-retrospective` judges an epic against its own artifacts, requires a source reference on every finding, and rejects an epic with unfinished stories instead of closing quietly. `bmad-sprint-planning` moves epic parsing, status merging, and summary computation into a tested Python script. `bmad-project-context` replaces generated documentation with one verified block in the repository's `AGENTS.md`.
+
+**Under the hood:** a shared content-addressed snapshot renderer publishes an immutable, inspectable copy of exactly what ran; the bmm tree takes its verb-named shape, `agents / plan / ship`; and the installer's directory prompt no longer installs to a path you never typed. Across 560 files, the release deletes about 1,900 more lines than it adds.
+
+### 💥 Breaking Changes
+
+* **Quick Dev renamed to Build** (#2651). `bmad-quick-dev` → `bmad-build`, `bmad-dev-auto` → `bmad-build-auto`; old IDs forward through shims. Dev agent (Amelia) menu `QD` → `BD`. **Rename your customization files**: `_bmad/custom/bmad-quick-dev{,.user}.toml` → `bmad-build{,.user}.toml`, same for `bmad-dev-auto` → `bmad-build-auto`. The shim offers the migration but requires explicit approval and never overwrites; declined or unavailable, it halts instead of forwarding, so unattended runs on the old name with a legacy customization file will refuse to start.
+* **Build is the official Phase 4 loop; `bmad-create-story` and `bmad-dev-story` deprecated** (#2637, #2641). The dev agent menu drops `DS` and `CS`, and both skills leave `bmad-help` recommendations and the workflow map. They move to `v6-shims/` retained in full and still run when invoked by name. Removal rides the v7 cut.
+* **Core cut to eight skills; review and editorial skills merge into `bmad-review`** (#2603, #2608). `bmad-review-adversarial-general`, `bmad-review-edge-case-hunter`, `bmad-review-verification-gap`, `bmad-editorial-review`, `bmad-editorial-review-prose`, and `bmad-editorial-review-structure` become shims; their behavior becomes lenses set through `[[workflow.lenses]]`, keyed by `code`. Shipped codes: `adversarial`, `edge-case-hunter`, `verification-gap`, `structure`, `prose`. `bmad-spec` moves from core into bmm, so core-only installs no longer get it. `bmad-index-docs` and `bmad-shard-doc` are removed outright.
+* **Research trio consolidated into `bmad-deep-recon`** (#2611). `bmad-market-research`, `bmad-domain-research`, and `bmad-technical-research` become shims forwarding with `type` pre-set; existing overrides are honored.
+* **`bmad-project-context` replaces `bmad-document-project` and `bmad-generate-project-context`** (#2674, #2698, #2700). Both become shims forwarding to `setup` intent. Analyst (Mary) menu `DP` → `PC`. Migrate overrides to `_bmad/custom/bmad-project-context.toml`. The deliverable changes shape: no generated overview, source-tree, or deep-dive pages and no `project-context.md`, just one verified block in `AGENTS.md`. An existing `project-context.md` still loads as a source. The deeper "explain this system and its rationale" altitude is a separate capability still to come.
+* **`bmad-check-implementation-readiness` removed** (#2659). Folded into `bmad-sprint-planning`, which opens with a readiness gate (PASS/CONCERNS/FAIL) that finds artifacts by content instead of the filename globs that missed `SPEC.md` and `DESIGN.md`. The `IR` trigger forwards there. Listed in `removals.txt`.
+* **`bmad-sprint-status` deprecated to a forwarding shim** (#2659). Forwards to `bmad-sprint-planning`'s status view; `SS` survives by dispatching it with `action=status`. Migrate `_bmad/custom/bmad-sprint-status.toml` to `bmad-sprint-planning.toml`. Its unused data/validate modes (zero callers) are gone.
+* **`bmad-agent-tech-writer` (Paige) retired** (#2658). Paige's replacement joins soon as an optional installable agent. Listed in `removals.txt`.
+* **Config moves to layered TOML, and `uv` with Python 3.11+ becomes a hard requirement for rendered skills** (#2281, #2601). Config resolves `_bmad/config.toml` → `config.user.toml` → `custom/config.toml` → `custom/config.user.toml`; customization resolves `{skill}/customize.toml` → `_bmad/custom/{skill}.toml` → `.user.toml`. The per-module `_bmad/bmm/config.yaml` still ships and the older skills still read it, so this release is the migration, not the cutover. Rendered skills have no interpreter fallback: `bmad-build` and `bmad-build-auto` halt if `uv` is unavailable. Build drops its `user_name` greeting and `user_skill_level` tailoring, and `document_output_language` is now enforced on file writes.
+* **Renderers halt on missing config keys and unreadable overrides** (#2588). A `{{.var}}` absent from your merged config used to render as an empty string, and an unparseable `_bmad/custom/<skill>.toml` used to be ignored. Both now exit 1 with a clean halt: add the missing key, or fix or delete the override.
+* **Build Auto contract: `deferred-work.md` and `final_revision` are gone** (#2640, #2668). Deferred findings live in the spec's frontmatter `deferred:` list (Build keeps its ledger). `## Finalize` sets `status: done` before the run's commit, so one commit covers the work and the finalized spec; compute a story's range as `baseline_revision..<next story's baseline_revision>`, or `..HEAD` at exit.
+* **Review layer labels and halt strings changed** (#2550, #2564). Triage tags findings by review-layer `id` instead of the fixed `blind` / `edge` / `vgap` / `auditor` labels, and Build Auto's two intent-gap conditions unify to the single string `intent gap`.
+
+### 🎁 Features
+
+* **`bmad-project-context` — new skill** (#2674, #2698, #2702). A conversation that produces one small verified block inside the repository's `AGENTS.md` instead of generated documentation. Four intents: `setup`, `refresh`, `record` (a mistake agents keep making), `audit` (re-verify and prune). You bring governance, standards, and frozen areas; the repo supplies the rest, verified. One admission test: anything derivable from source is read live and never stored, so `pnpm test` stays out while "the suite takes eleven minutes" goes in. Every write is shown first, it runs standalone with no BMad install, and it fires only when you name it — no routing on inferred intent.
+* **`bmad-deep-recon` — research consolidated into one core skill** (#2611). Three modes: draft a deep-research prompt for your own ChatGPT / Gemini / Grok / Perplexity subscription, process a finished report into a cited summary downstream skills reuse without reprocessing, or run the research here. Six type packs (market, domain, technical, competitive, user-voice, academic-lit) plus a select shape for choose-between decisions. Lives in core, so core-only and CIS installs get it. Analyst menu gains `TS`, `CR`, `UV`.
+* **`bmad-review` — one review skill, many lenses** (#2603, #2608). Document review and code review stop competing for the same trigger. Lenses are addable, replaceable, and disablable from `_bmad/custom/bmad-review.toml`, and `bmad-prd`, `bmad-ux`, `bmad-architecture`, and `bmad-product-brief` name explicit lenses in their `doc_standards`.
+* **Verification-gap reviewer** (#2535). A third parallel review layer asking "if this behavior broke, would any test fail?" rather than "is this wrong?", reporting untested behavior changes instead of bugs. Blind validation against seven real commits from a production HIPAA platform surfaced shipped regressions, including two its ground-truth rubric had missed.
+* **Review layers are configurable** (#2550). `[[workflow.review_layers]]` in `bmad-code-review`, `bmad-build`, and `bmad-build-auto` lets you add, replace, or disable a reviewer, including swapping in an external tool over bash and therefore a different model. An empty `instruction` disables a layer, a new `id` appends one, and defaults reproduce the previous prompts exactly.
+* **Intent Alignment Auditor** (#2560). A fourth default Build Auto review layer fed the verbatim invocation intent alongside the diff, with an intent-ambiguity halt in planning and a scope rule: only the intent, never the spec's own scope language, can justify deferring a finding. The post-implementation acceptance-criteria checkbox ritual is gone.
+* **`bmad-retrospective` rebuilt as an evidence-based epic review** (#2612, #2665). Five phases over the epic's real artifacts, with aggregate views no single diff hunk shows: architecture delta, duplication, god-class growth, pattern divergence, spec reconciliation. Team discussion is now opt-in, delegating to `bmad-party-mode` seeded with real findings. New `-H` / `--headless` flag, with `-H <epic>` as the stable orchestrator interface. It can also retro an epic that exists only as a spec folder, the shape unattended Build Auto runs leave behind, writing `{spec-folder}/RETROSPECTIVE.md` without touching sprint status.
+* **sprint-planning rebuilt around a deterministic script core** (#2659). `scripts/sprint_plan.py` (generate / status / validate, JSON-only output, 37 tests) owns epic parsing, ordering, preserve-never-downgrade status merging, story-file detection, `action_items` carry-over, atomic writes, drift checks, and the status summary. Legacy v6 statuses (`drafted`, `contexted`) are normalized rather than treated as illegal, and refresh preserves custom keys, comments, and `project_key` / `tracking_system` / `story_location`. Judgment stays with the LLM, and the skill falls back to reading the file directly if a script path fails. `sprint-status.yaml` format is unchanged, so Build's sprint sync is unaffected.
+* **Sprint-status repair and validation** (#2659). "Fix sprint status" rebuilds a broken or drifted file: subagents gather evidence, you confirm the proposed state, then one `generate --fresh --set key=status ...` writes a pristine file, the only path allowed to downgrade a status. "Validate sprint status" reports structural problems without writing.
+* **Inspectable workflow snapshots** (#2601, #2657). Skills render through a shared `_bmad/scripts/render_skill.py` publishing immutable, content-addressed snapshots under `_bmad/render/`, each with a `manifest.json` of renderer and source hashes, resolved values, and per-output hashes. Publishing is atomic, an existing generation is verified and reused, and a collision raises rather than overwrites.
+* **`stories.yaml` contract between planning and execution** (#2549, #2666). `bmad-spec` gains an optional Story Breakdown step emitting `stories.yaml` beside `SPEC.md`: an ordered sequence where list order is execution order, with `id`, `title`, `description`, `spec_checkpoint`, `done_checkpoint`, and `invoke_dev_with`, and deliberately no `status`. Build and Build Auto can both be dispatched by spec folder plus story id, so story specs live under `{spec-folder}/stories/` with the spec that owns them.
+* **The implementation handoff is a configuration key** (#2561, #2629, #2635). `[workflow] implementation_handoff` holds the literal recipe passed to the coding subagent, so an organization can route implementation to a different model or an external CLI without forking the skill. The parent is barred from restating goals, listing files, or injecting acceptance criteria into the dispatch.
+* **Configurable editor handoff at Build completion** (#2652). The hard-coded VS Code launch becomes `[workflow] open_spec`, defaulting to the previous behavior; set it to an empty string to disable the launch without affecting spec generation. Examples ship for VS Code, Cursor, Windsurf, Zed, IntelliJ IDEA, Vim, and Emacs.
+* **Matrix test coverage is audited** (#2554). When a spec carries an I/O and Edge-Case Matrix, implementation checks every row has a covering test and that the test actually executed and passed: one that exists but was never registered, filtered in, or enabled counts as missing. Build Auto adds the blocked reasons `matrix ambiguity` and `matrix test audit failed`; Build halts and asks.
+* **Antigravity CLI (AGY) as an installer target** (#2551). A separate picker entry from the Antigravity IDE, installing to `.agents/skills` and `~/.gemini/antigravity-cli/skills`, so the two never collide. Thanks to @bdsoha. Closes #2440.
+* **Core-only installs are now possible** (#2680). `core` was a locked, never-actionable checkbox in the module picker; it is no longer a row, and is still force-added and installed first.
+
+### 🐛 Fixes
+
+* **The installer could install to a directory you never typed** (#2680). The directory prompt returned the focused autocomplete option rather than the typed text, and focus was sticky across edits, so a single stray `↑` silently selected the last directory in the list. Rebuilt on a plain text field whose value is the line.
+* **`--set core.<key>` overrides were applied too late** (#2671). They patched the TOML after install but never reached config collection, so artifact paths and the created directory still used `_bmad-output/`: exit code 0, no warning, and BMAD writing to the folder you had explicitly overridden. Core `--set` keys now fold into the option fields first.
+* **Windows: persona resolver output is decoded as UTF-8** (#2687, #2688). Emoji-bearing persona data corrupted under a legacy locale such as cp1252, which broke `bmad-party-mode` outright. Fixed in party-mode and `bmad-forge-idea`, which share the resolver. Fixes #2682.
+* **Verification-gap review stops demanding tests that verify nothing** (#2646, #2647, #2662, #2663, #2683). No more pushing for tests that grep source or prompt files for wording, or that call a live model and judge its answer; exact-content assertions stay eligible when deterministic code constructs the output, and weakening a real test is still flagged. Across 16 reviewer runs, prompt-only diffs went from 2/2 false gaps to 0/2 with every genuine code finding preserved.
+* **The adversarial reviewer drops its persona for a method** (#2675). A/B piloting on Claude and Codex showed the "cynical, jaded reviewer" framing made no difference to residual-bug hit rate, while requiring at least ten concrete findings and asking what is missing did.
+* **Phase 4 reviewers get their full contracts back** (#2638, #2642). Routing the ship-path reviewers through `bmad-review` lenses had changed their semantics and output guarantees; `bmad-code-review`, `bmad-build`, and `bmad-build-auto` now own local `review-prompts/*.md` copies. Reviewers are dispatched by path to their prompt file instead of having the parent transcribe it, which was truncating instructions.
+* **Review triage judges findings independently** (#2555). Only findings with the same claim and the same required action are deduplicated, so similar-looking findings stop collapsing or being silently dropped.
+* **Follow-up review is scored, not judged** (#2580). `followup_review_recommended` is arithmetic over the final pass's patch-triaged findings: true if any high, or if `3 × medium + 1 × low ≥ 5`. Patches route back to the implementation subagent and verification re-runs after they land, so runs converge.
+* **Commits match the reviewed diff** (#2563). Finalize commits every file in the reviewed diff, tracked and untracked, amends if short, and declares anything still dirty as residual artifacts. The implementation subagent must also declare files changed beyond the spec's tasks.
+* **Intent-gap halts preserve the attempted change** (#2564). The work is saved as a patch under `{implementation_artifacts}` and named in the halt output before the tree is reverted, so you can `git apply` it and set the spec to `in-review` to resume review instead of re-running.
+* **Review fan-out is atomic** (#2565). Every reviewer subagent is spawned before any output is read, removing an observed serialized fan-out of over two minutes.
+* **Code review honors "no spec"** (#2645). Declaring no spec is respected instead of prompting for one anyway, and omitting a spec path no longer silently drops you into no-spec mode.
+* **No more epic and story reference comments in generated code** (#2544). The dev agent stops writing `# Epic: X` / `# Story: PROJ-42` markers and explanatory noise into source. This lands as constraints on `bmad-agent-dev`, so it covers Amelia-driven work rather than the `bmad-build` path. Fixes #2538.
+* **Planning isolates deep exploration** (#2557). The planner was duplicating exploration in parallel with the subagent it had just dispatched; it now reads narrow code inline and plans from returned summaries.
+* **Deployed docs validation findings** (#2644). Wide localized tables clipped on mobile, Phase 4 summary rows named a skill unnecessarily, and slash-terminated `SITE_URL` values produced double-slash canonical and LLM URLs.
+* **Installer directory-prompt tests are deterministic** (#2685). They no longer simulate a terminal, which was producing 11 false failures under `TERM=dumb` and showing contributors on plain shells a red run on a correct tree.
+* **The installer called `uv` optional while Build already required it** (#2704). It printed "becoming the de facto standard" as a Tip inside the "BMAD is ready to use!" box, and discarded the probe's result, so you could install, see green, and hit a halt on the first `bmad-build`. The warning now names the skills that halt and repeats in the post-install summary; a `python3` probe runs only when `uv` is absent. Still never blocks — core-only and CI installs don't render skills.
+* **`src/` no longer assumes a system Python** (#2704). The 25 remaining `python3 resolve_customization.py` call sites move to `uv run`; below 3.11 they had been failing into their hand-merge fallback silently. Four sites that spawned Python purely to open an HTML file now use the platform opener (`open` / `xdg-open` / `start`). With every script invoked through `uv run`, which provisions an interpreter from each script's own `requires-python`, Python leaves the prerequisites: you need Node and `uv`.
+
+### 🗑️ Removed
+
+* **`bmad-index-docs` and `bmad-shard-doc`** (#2603). Retired with no replacement, listed in `removals.txt` so existing installs clean up. The "shard large documents" how-to is gone from all five locales.
+* **Whiteport Design Studio retired from the module picker; key features will merge into the bmad-ux package coming soon** (#2680). `bmad-method-wds-expansion` is marked deprecated and hidden from the picker when not installed. Existing installs still see it, still select it, and are never silently stripped. Deprecation warnings now fire on every flow, interactive and CLI alike, which also closes the same silent gap for `bmad-automator`.
+* **Non-interactive installation pages** (#2670). Removed in all five locales, with redirects to the regular installation guide.
+* **The adversarial-review explanation page** (#2679). Removed in all five locales; the material now lives with the lens itself.
+
+## v6.10.0 - 2026-07-03
+
+### ✨ Headline
+
+**bmad-loop lands as an installable module, and the automator that came before it steps aside.** **bmad-loop** — the successor project for unattended dev-loop orchestration, adversarial review, and deferred-work sweeps — is now selectable straight from the installer picker, driven by the new **bmad-dev-auto** skill: a single-iteration unattended worker that clarifies intent, creates or resumes a spec, implements, reviews, and finalizes, all off a spec-frontmatter state machine an orchestrator can poll. **bmad-automator**, the experimental predecessor, is now deprecated in its favor.
+
+**Also in this release:** party-mode gets an anti-consensus room and two sync fixes, the code-review/edge-case-hunter pipeline gets sharper severity triage and a named-set generalization pass, and **bmad-investigate** is retired.
+
+### 💥 Breaking Changes
+
+* **bmad-automator deprecated, replaced by bmad-loop** (#2532). New installs no longer show BMad Automator in the picker. Existing installs are untouched and keep showing, with a migration hint pointing to BMad Loop. If you're on Automator, plan the move to `bmad-loop`.
+
+### 🎁 Features
+
+* **bmad-loop — new marketplace module** (#2532). BMad's unattended-dev orchestrator ships as an opt-in installer module (`bmad-loop`, not selected by default). Its skills live behind a `.claude-plugin/marketplace.json` rather than a normal `module.yaml` folder, so the installer gained a `marketplace-plugin` registry flag that routes it through the existing custom-plugin resolver, and now fails loudly instead of installing an empty module if resolution comes up short. Installing the module only stages files — finish setup by running the `bmad-loop-setup` skill, which installs the orchestrator and wires up per-project hooks and policy; automation doesn't run until that completes. A new `post-install-message` registry field surfaces this instruction right after install (blocking on interactive installs so it isn't missed, non-blocking with `--yes`).
+* **bmad-dev-auto — new unattended workflow skill** (#2500 and nine follow-ups). A Quick Dev sibling built to keep moving without a human in the loop, driven entirely off spec-frontmatter status so an orchestrator like bmad-loop can poll it. Hardened through the release: an append-only review-triage log with loopback tracking (#2505); an end-of-run commit so the worktree stays clean into the next iteration (#2506); a fix to the Blind Hunter reviewer, which was wrongly denied project access ("blind" means blind to intent, not to the codebase) (#2507); re-entry on a completed spec to trigger a fresh follow-up review pass (#2508); a `final_revision` recorded in frontmatter at exit, the only link back from an out-of-tree spec to its in-tree commits (#2522); a closed gap where Finalize could leave `status: draft` on an otherwise-done run (#2536); and a hardened contract requiring subagents to be invoked synchronously, since there's no event loop to resume a yielded turn (#2543). Reference doc at `docs/reference/dev-auto.md` (#2519), retitled "Autonomous Development Loops" (#2521). Some of the same prompt fixes were backported to Quick Dev (#2501).
+* **party-mode: anti-consensus club** (#2530). New built-in persona group (Wildcard, Level, Killjoy, Splinter) for decision rooms that resist fast agreement while keeping a human in control. Launch with `--party=anti-concensus-club`, and use `--mode subagent` for best results. These can be configured as defaults if you use bmad customize and specify that.
+* **Two new elicitation methods: Subtraction and Map Is Not the Territory** (#2515). Subtraction counters additive bias; Map Is Not the Territory guards against over-trusting a lossy model.
+* **Edge Case Hunter: named-set generalization pass** (#2524). Catches diffs that special-case some members of a fixed set (enum, status code, sentinel, flag) while leaving the rest as silent unhandled branches. Measured catch-rate improvement of 50% to 100% on a real regression, at a 19% token cost per run.
+
+### 🐛 Fixes
+
+* **party-mode stays interactive and the room stays in sync** (#2531). Fixes a bug, observed under Codex, where a runtime treated the opening prompt as one-shot and closed spawned agents once satisfied. Party mode is open-ended by default now, ending only on explicit signal, with an opt-in `--non-interactive` flag; standing agents are kept alive and resumed rather than dropped.
+* **party-mode: agent-team sync corrected to point-to-point** (#2539). Claude Code Agent Teams communicate mailbox-style, not over a shared broadcast channel, so an idle member doesn't see exchanges it isn't addressed in. Docs updated so the lead relays turns; subagent mode, which is genuinely broadcast, is unchanged.
+* **Code-review triage severity calibration hardened** (#2523). Requires reading surrounding source (call sites, guards) before rating severity instead of judging from the diff hunk alone, fixing over-rated unreachable findings, and drops a "prefer conservative when uncertain" tie-breaker that was inflating severity.
+* **Deletion audit folded into Edge Case Hunter** (#2525). Retires the standalone deletion-contract auditor layer, which added cold-start cost for near-zero yield, in favor of a gated deletion check inside Edge Case Hunter's existing turn.
+* **Review layer invocation normalized** (#2526). Removes stale "no access/control" wording from code-review/quick-dev/dev-auto prompts and normalizes Blind Hunter / Edge Case Hunter invocation phrasing.
+* **Installer accepts Windows custom module paths** (#2511). Local paths like `C:\modules\foo`, `C:/modules/foo`, and `.\foo` no longer fall through to the Git-URL parser and get rejected.
+* **bmad-help reads central config** (#2541). Its config data source now goes through the shared four-layer TOML resolver instead of legacy `config.yaml`/`user-config.yaml`, fixing `communication_language` and `project_knowledge` not reaching the skill.
+
+### 📚 Docs
+
+* **bmad-forge-idea wording tightened** (#2513). Overview, session, persona, and exit language rewritten more directly; no behavior change.
+* **validate-skills exempts deprecated skills from the trigger-phrase check** (#2486). Thin compatibility shims (`bmad-create-prd`, `bmad-edit-prd`, `bmad-validate-prd`, `bmad-create-architecture`) intentionally omit a trigger phrase to steer users to their replacement.
+
+### 🗑️ Removed
+
+* **bmad-investigate retired.** It reached the same conclusions as plain investigation at higher cost; the case-file artifact didn't justify the overhead.
+
+## v6.9.0 - 2026-06-21
+
+### ✨ Headline
+
+**Reasoning skills get sharper and orchestration gets a memory.**
+
+**bmad-forge-idea** is a new core skill that takes a half-formed idea and pressure-tests it one Socratic question at a time — with an adversarial attack mode and optional persona rooms — until the idea hardens, proves out, or dies cheaply. 
+
+**bmad-architecture** lands as a ground-up rewrite of the old multi-step create-architecture flow: a lean spine (`ARCHITECTURE-SPINE.md`) that is the source of truth, intent-based routing (Create/Update/Validate), a breadth-coverage rubric so no dimension is silently skipped, and an opt-in reviewer gate.
+
+**party-mode** is reborn with creatable, savable custom parties, optional party memory, and many pacing and dynamics improvements.
+
+**Under the hood:** a canonical shared **memlog** (`_bmad/scripts/memlog.py`) replaces per-skill decision logs and is now the standard working-memory primitive across the suite. The installer now checks for **uv** and reframes it as the standard way to run BMAD's Python scripts (`uv run`). Plus an **Astro 6** security upgrade clearing 8+ Dependabot advisories and two new platform targets.
+
+### ⚠️ Upcoming Breaking Change (in v7) — standardizing on `uv`
+
+The industry is converging on [**uv**](https://docs.astral.sh/uv/) for running Python, and BMAD is following. Today our skills use a **mix** of `uv run` and direct `python3` invocation. In the **v7 release, every skill that runs a Python script will standardize on `uv run`** instead of calling `python3` directly — `uv` provisions the interpreter and manages dependencies, so scripts run consistently regardless of what's on your PATH.
+
+**What to do now:** install and set up `uv` ([docs](https://docs.astral.sh/uv/)) — or just ask your AI agent to "install and set up uv for me." Starting this release the installer checks for it and points you to setup if it's missing. `uv` is **not yet required** but without it some skills may have degraded performance or a shim AGENTS.md (or similar) or rule will need to be added to your environment to tell the agent when it sees uv run to use python3 instead. The best course of action though at this time is to install uv. A missing `uv` still warns rather than blocks, but it will be the assumed default in v7. Custom skills and overrides that shell out to `python3` should plan to migrate to `uv run`.
+
+### 🎁 Features
+
+* **bmad-forge-idea — new core skill** (#2492). Domain-agnostic idea pressure-testing for the analysis phase: Socratic, one-question-at-a-time interrogation with an adversarial attack mode and optional persona rooms resolved from the installed roster. Hardens or kills an idea cheaply; emits memlog residue and an optional brief that feeds bmad-spec or bmad-quick-dev. Interactive only (menu code FI).
+* **bmad-architecture — lean spine rewrite** (#2467, #2475). Replaces the fixed-step `bmad-create-architecture` (retained as a forwarding shim, removed in v7) with intent-based routing across five entry shapes (raw idea, large doc, codebase, feature slice, existing spine). The spine (`ARCHITECTURE-SPINE.md`) is the source of truth and SPEC.md is derived from it. Adds a breadth-coverage rubric (every altitude-owned dimension decided/deferred/open), an opt-in reviewer gate that scales lenses to rigor, and a full non-interactive headless mode. `lint_spine.py` hardened with fence-blanking, robust column detection, and 28 regression tests.
+* **party-mode: configurable parties + persistent memory** (#2479, #2484). Custom personas (`party_members`) and named rooms (`party_groups`, with optional scenes), four run modes (auto/session/subagent/agent-team), and a preloaded "Code Review Crew" of five adversarial lenses. Each party keeps append-only session memory under `{memory_dir}/<party_id>/` so sessions resume with prior context; ad-hoc casts stay ephemeral.
+* **bmad-brainstorming: facilitation modes + visual composer** (#2445). Three modes (Facilitator / Creative Partner / Ideate for me), append-only memlog with optional `--by` authorship attribution, and a self-contained `brain-selector.html` composer (technique strategy, category chips, filter, copy-to-clipboard, dark mode). Catalog grows to 108 techniques (8 new classics: HMW, JTBD, Empathy Map, Backcasting, TRIZ, Fishbone, Build on What Works, Scenario Cross) plus a convergence phase.
+* **Canonical shared memlog script** (#2462). New `src/scripts/memlog.py` — append-only chronological working memory with init/append/set ops, no lifecycle-status design, Python 3.8+ support, 30 tests. Any skill can call it at runtime.
+* **Retrospective action items tracked in sprint-status** (#2465). The retrospective step appends an `action_items` section to `sprint-status.yaml`; sprint-status validates and surfaces open items, and sprint-planning preserves them on regenerate.
+* **Installer checks for `uv` and reframes it as the standard** (#2495). Replaces the old python3 probe with a `uv` check, adds a heads-up to the install intro and a tip to the "BMAD is ready" summary, and updates docs/script docstrings (en/fr/vi-vn) to frame `uv run` as the standard and `python3` as the transition fallback. Migration-friendly: a missing `uv` warns and points you to setup, never blocks. See the Upcoming Breaking Change note above.
+* **New installer platform targets: hermes-agent and CodeWhale** (#2489, #2459). hermes-agent added as a tool target; CodeWhale uses `.codewhale/skills/` (project) and `~/.codewhale/skills/` (global), both with test coverage.
+
+### 🐛 Fixes
+
+* **Astro 6 security upgrade clears Dependabot alerts** (#2493). Astro 5.18.1 → 6.4.6 and Starlight 0.37.5 → 0.40.0 (8 XSS/SSRF advisories), esbuild pinned to 0.28.1 (Windows dev-server file read), markdown-it 14.2.0 (smartquotes ReDoS), brace-expansion 5.0.6 (range DoS). Docs content config migrated to `src/content.config.ts`; page output verified identical to baseline.
+* **Guard WSL installs from Windows Node** (#2470). Detects and prevents a Windows `node.exe` being used inside WSL, where it would silently fail.
+* **Remove empty skill-group dirs after install** (#2461). Prunes empty parent dirs (e.g. `_bmad/bmm/1-analysis`) left after skill cleanup, with a path-boundary check to avoid sibling-dir collisions.
+* **bmad-create-epics-and-stories discovers bmad-ux spine outputs** (#2446). Prerequisites now recognize `DESIGN.md` / `EXPERIENCE.md` alongside the legacy `ux-spec.md`.
+* **Pass diff inline to the blind-hunter reviewer** (#2463). Diff output is passed inline in the subagent prompt rather than via a file the reviewer can't read, preventing context-starved hallucination.
+* **Website: nav height for dual announcement banners** (#2473). Fixes layout crowding when two banners show at once.
+* **Workflow clarity & numbering** — clarify quick-dev subagent use across code-review/create-story/quick-dev (#2450), renumber retrospective steps (#2448).
+
+## v6.8.0 - 2026-05-25
+
+### ✨ Headline
+
+**New planning shapes lead this release.** **bmad-ux** replaces the old single-spine UX skill with a two-spine contract: **DESIGN.md** (visual identity, Google Labs spec) and **EXPERIENCE.md** (behavior, flow, IA). **bmad-spec** distills any messy intent (brain dump, PRD, transcript, brief) into a tight five-field SPEC.md kernel that any downstream skill can consume. Both extend the streamlined Create/Update/Validate + Fast/Coaching template that **bmad-prd** and **bmad-product-brief** set in v6.7.0. The handoff from design into engineering is now a sealed file contract, not a translation layer.
+
+**Also shipping:** **Web Bundles** for Gemini Gems and ChatGPT Custom GPTs ([bmadcode.com/web-bundles](https://bmadcode.com/web-bundles/)) bring six planning bundles to non-IDE users with full IDE schema parity. **bmad-automator** (story automation) lands on the `next` channel. **bmad-method-ui** ships a community-alpha VS Code dashboard + standalone Next.js web UI. 19 new elicitation techniques arrive. Plus a long tail of installer and activation fixes.
+
+### 💥 Breaking Changes
+
+* **`bmad-create-ux-design` replaced by `bmad-ux`.** Single `design.md` spine is gone. New skill emits **DESIGN.md** (visual tokens per the Google Labs spec) and **EXPERIENCE.md** (behavior, flow, IA, states, a11y), with EXPERIENCE.md referencing DESIGN.md tokens via `{path.to.token}` syntax. Adds named-protagonist journeys, surface-closure validation, opt-in reviewer gate, and an extensible producer-handoff registry (default: Stitch). Installer auto-removes the legacy skill. PRD and brief templates aligned (form-factor probe, named-protagonist UJs, no standalone Primary Persona) (#2413)
+* **`bmad-distillator` retired, superseded by `bmad-spec`.** Promoted to core because the kernel pattern is domain-agnostic. Installer cleans up automatically. No internal pipelines called it, but custom workflows must switch to `bmad-spec`.
+
+### 🎁 Features
+
+* **Web Bundles v6 shelf**: Six bundles purpose-built for Gemini Gems and ChatGPT Custom GPTs. Brainstorming (60 techniques, 10 categories), Product Brief (Create/Update/Validate, Fast/Coaching paths), PRFAQ (Working Backwards, 4 stages, weasel-word challenge), PRD (Vision- or Journey-led, 7-dimension validation), UX (two-spine, Don Norman framing, Stitch handoff), Market & Industry Research (Deep Research + Porter + Christensen). Full schema parity with IDE skills so Gem ↔ IDE handoffs do not break. [bmadcode.com/web-bundles](https://bmadcode.com/web-bundles/) is the single supported install path (#2421, #2423, #2425)
+* **Web Bundle release packager**: `tools/bundle-web-bundles.js` zips each bundle into `dist/web-bundles/{slug}.zip` for GitHub Release attachment. `web-bundles/bundles.json` carries persona, copy, accent color, knowledge files, and platform feature flags (web-browsing, deep-research, Stitch). Zero deps; `execFileSync` + strict slug regex (`^[a-z0-9][a-z0-9-]*$`) eliminates shell-injection surface (#2424)
+* **`bmad-spec`, new core skill**: Distills any intent (brain dump, PRD, transcript, brief) into `SPEC.md` with a five-field kernel (Problem, Capabilities, Constraints, Non-goals, Success signal). Catalogs, tables, diagrams, and editorial-voice content go to named companions; absorbed inputs land in a `sources:` list downstream skips. Eight-rule Spec Law with lean-prose discipline. Outputs to `{output_folder}/specs/spec-{slug}/`, works without bmm installed. Headless callers get JSON; interactive runs close conversationally (#2417)
+* **`bmad-ux`, spine-based UX skill**: Rewrite around DESIGN.md (visual identity, Google Labs spec) + EXPERIENCE.md (behavior, flow, IA). Six-step activation matches `bmad-prd` and `bmad-product-brief`. Fast/Coaching modes. Opt-in reviewer gate (no auto-spend on parallel reviewers for hobby work). Per-category verdicts, no misleading headline grade. Ships three DESIGN.md examples (editorial/Linen & Logic, native mobile/Quill, web SaaS/Drift), two paired EXPERIENCE.md examples, one unpaired DESIGN.md modeling the pure Stitch handoff (#2413)
+* **19 new advanced-elicitation techniques**: New `framing` category plus additions across 7 categories (all 50 existing methods preserved). Highlights: Chain-of-Thought Scaffolding, Six Thinking Hats, Delphi Method, Inversion Analysis, Steelmanning, Morphological Analysis, Abstraction Laddering, Cascading Failure Simulation, Boundary & Edge Case Sweep (#2062)
+* **Docs sidebar-order validator**: `tools/validate-sidebar-order.js` flags duplicates, gaps, missing fields, and translation drift across English and translated docs. Wired into `docs:validate-sidebar`. Locale-pattern detection prevents nested English subfolders from being silently excluded (#2409)
+
+### 🐛 Fixes
+
+* **Skill activation guardrails strengthened across 23+ skills**: LLM agents were short-circuiting activation sequences (INCLUDE → READ → RUN → CHECK → FILTER → CD) by guessing variables instead of executing in order, silently skipping append steps and `on_complete` hooks. New guardrail names prepend/append steps explicitly and requires confirmation. Applied to all BMM planning + execution skills, all persona agents (analyst, tech-writer, pm, ux-designer, architect, dev), and new skills (bmad-spec, bmad-ux) (#2398)
+* **Installer reads `config.toml` on re-run**: `loadExistingConfig` only read legacy `_bmad/<module>/config.yaml`, so user-scoped answers (`user_name`, `communication_language`) written to `_bmad/config.user.toml` were ignored and users got re-prompted. Adds `parseCentralToml`; central toml read first, legacy yaml as fallback (#2411)
+* **Stale custom-source caches refreshed on quick-update**: Quick-update now calls `cloneRepo` for every cached custom module, persists the real `next` ref, and atomically dedupes the refresh. When `git fetch` fails (network, deleted repo, revoked auth), the previous clone is preserved with a warning instead of being wiped (#2399)
+* **Shallow-clone default branch resolution**: `--depth 1` clones leave `origin/HEAD` stale, so `git reset --hard origin/HEAD` never pulled new commits. Now resolves the default branch via `git symbolic-ref` and resets against `origin/<branch>` explicitly, falling back to `main` (#2332)
+* **SSH Git URLs with nested group paths**: Custom module installer parses GitLab subgroup and Gitea nested-team SSH URLs correctly (#2379)
+* **`project_context` defined in dev-story, sprint-planning, sprint-status**: Skills referenced the variable without resolving it, producing unresolved expansions at activation in some configurations (#2422)
+* **Dev story baseline commits captured**: Baselining records the commit set the story was scoped against, so reviews compare against a stable reference (#2403)
+* **Customization JSON written as UTF-8**: Non-ASCII team names, product names, and editorial overrides survive a round trip through `_bmad/custom/` (#2414)
+* **Brainstorming idea-flow stays collaborative**: Agent was prematurely converging on its own preferred ideas instead of mirroring and expanding the user's. Collaborative posture restored (#2402)
+
+### 📚 Docs
+
+* **bmad-investigate added to agent trigger tables**: `agents.md` and `named-agents.md` now show the `IN` trigger and forensic-investigation capability on Amelia's row, closing a v6.7.0 gap (#2410)
+* **Web Bundles install framing and update/customize guidance**: Drops misleading "one-click install" and "two files" claims; adds explicit Gem/GPT setup pattern and an "Updating and customizing" section: custom changes belong in the pasted instructions block, not the knowledge files, so updates do not clobber team customizations (#2423)
+* **Web-bundles install traffic centralized at bmadcode.com/web-bundles**: README, web-bundles README, explanation, and how-to pages all point at the site as the single supported install path (#2425)
+* **Reference docs for bmad-spec**: Full entry in `docs/reference/core-tools.md` (en); table-row stubs in cs/fr/vi-vn/zh-cn pending full translation
+
+## v6.7.1 - 2026-05-18
+
+### 🐛 Fixes
+
+* **Installer no longer errors when a previously installed module's source can no longer be found** — In v6.7.0 the experimental BMad Automator module's installer code (the value used for its `_bmad/<code>/` folder and manifest entry) was renamed from `baut` to `automator`. Anyone who had installed it under the old `baut` code saw `quick-update` fail with `Source for module 'baut' is not available` and risked having the existing install removed. The installer now detects installed modules that can no longer be resolved from any source, leaves them in place untouched, and continues the update. If you previously installed it as `baut` and want the renamed `automator` version, run `npx bmad-method install`, choose **Modify BMAD Installation**, and reselect **BMad Automator**; the old `_bmad/baut/` directory can then be deleted manually
+
+## v6.7.0 - 2026-05-17
+
+### ✨ Headline
+
+**PRD and Product Brief rebuilt as lean, outcome-driven facilitators called bmad-prd and bmad-brief.** Both flagship planning skills now ship three first-class intents (Create / Update / Validate), support express and guided modes, drive elicitation rather than LLM-suggested filler, and adapt output to your needs. New PRD validation pipeline replaces the adversarial reviewer with a quality-rubric synthesis pass that emits both HTML and markdown reports. New **bmad-investigate** skill brings forensic, evidence-graded case files for bug triage, incident RCA, and unfamiliar-code exploration.
+
+A new .decision-log pattern is implemented in this release that will track through workflows all decisions made from the start, allowing for easier continuation or later modifications, where memory of what was decided and why will be remembered.
+
+The existing create, edit and validate prd skills still exist but internally will route to the single prd skill with the proper intent. These shims will be removed with the 7.0.0 release when similar updates are completed across all of v6.
+
+The shape of the toml customizations is still the same, so if you make them for create already, it will still work. There are new fields supported also that can improve your experience with the new bmad-prd skill.
+
+### 💥 Breaking Changes
+
+* **Community modules picker removed from the interactive installer.** Previously installed community modules are preserved on update. Install community modules headlessly with `--custom-source <git-url-or-path>`, or wait for the forthcoming dedicated community installer.
+* **Remote marketplace registry fully retired.** The installer makes zero network calls to `bmad-code-org/bmad-plugins-marketplace`. Both the official-registry fetch (`registry/official.yaml`) and the community-catalog fetch (`registry/community-index.yaml`, `categories.yaml`) are gone. `CommunityModuleManager` and `RegistryClient` are deleted. The bundled `bmad-modules.yaml` at the repo root is the single source of truth for which official modules appear in the picker. Per-module version bumps continue to happen in each module's own repo. **Migration note:** users with previously installed community modules will see them preserved in their manifest, but updates must be handled via `--custom-source <url>` going forward (a dedicated community installer is planned separately).
+
+### 🎁 Features
+
+* **WDS (Whiteport Design Studio) now bundled in the official module picker.** Selectable alongside BMM, BMB, BMA, CIS, GDS, and TEA without needing `--custom-source`.
+* **Refreshed display names and hints across all bundled modules.** Shorter, clearer names; hints now describe what each module provides. TEA repositioned to sit directly after BMM in the picker.
+* **Registry entries can declare a `plugin_name` override.** When a module's `.claude-plugin/marketplace.json` declares the plugin under a name different from the module's installer code (e.g., WDS uses `bmad-wds`), set `plugin_name: <name>` on the registry entry to match the marketplace plugin without falling back to the single-plugin heuristic.
+
+* **bmad-prd overhaul** — Three intents (Create / Update / Validate); new Discovery shape (Brain dump → Stakes calibration → Working mode → mode-scoped work); capability-first or user-first modes; Essential Spine template plus Adapt-In Menu with authorized section invention for compliance, integration, hardware, SLAs, monetization, data governance; subagent web research default-on; rebuilt validation via PRD Quality Rubric → synthesis pass → HTML + markdown reports; cross-skill parity with `bmad-product-brief` (variable names, `.decision-log.md`, `persistent_facts` auto-loads `project-context.md`); headless mode with per-intent inputs and `partial` status (#2385, #2378)
+* **bmad-product-brief refactor** — Streamlined from a five-stage scripted workflow to a single outcome-driven SKILL.md with Create / Update / Validate intents; inline discovery, elicitation, and review (no more scripted agent fan-outs); new `assets/brief-template.md` with adapt-aggressively guidance; finalize chain through `bmad-distillator` and `bmad-help`; JSON headless responses (#2370, #2371)
+* **New bmad-investigate skill** — Forensic case investigation with evidence-graded findings (Confirmed / Deduced / Hypothesized), delegation discipline for large codebases, resume-on-collision logic; supports both defect-chasing and area-exploration modes (#2345 and follow-ups)
+* **Interactive directory prompt in installer** — `@clack/core` AutocompletePrompt for install-path selection: Tab-cycles existing child dirs, accepts not-yet-created paths, validates raw input (#2387)
+* **OpenCode and GitHub Copilot pointer files** — Generic `installCommandPointers()` mechanism driven by per-platform YAML. OpenCode gets `.opencode/commands/<id>.md` for every skill; Copilot gets `.github/agents/<id>.agent.md` for persona agents only (plus `bmad-tea` allowlist), keeping the Custom Agents picker uncluttered. Works for external modules automatically via `skill-manifest.csv` (#2324)
+* **BMad Automator (`bma`) registered** — Bundled registry fallback gains source-root external-module support, enabling `--modules bma` (#2345)
+
+### 🐛 Fixes
+
+* **Clear installer error on missing module definition** — `findExternalModuleSource()` throws an actionable error naming the module, missing path, and channel, with a suggested `--next=<code>` recovery path, replacing a silent ENOENT in `getFileList` (#2377)
+* **bmad-product-brief Update/Validate discipline** — Headless Update now requires decision-log entry + addendum before modifying `brief.md`; distillate regeneration is mandatory; Validate always returns `"offer_to_update": true`; eval expectations tightened (#2371)
+* **Module help catalog directional clarity** — Renamed `after`/`before` columns (and JSON manifest keys) to `preceded-by`/`followed-by` to eliminate ambiguity that was causing dependency-direction flips; `required` retains hard-gate semantics (#2360)
+* **bmad-help removed from Copilot Custom Agents picker** — Not a true agent; every persona already advertises it on activation (#2359)
+* **bmad-investigate robustness** — Collapsed multi-line description, unwrapped case-file template, tightened PRD discovery glob (review follow-ups)
+* **Dependency security audit** — Lockfile-only fixes closed 12 of 14 open Dependabot alerts (`vite`, `postcss`, `h3`, `yaml`, `brace-expansion`, `picomatch`, `astro`, others). Two `astro <6.1.10` alerts and one `markdown-it` (via `markdownlint-cli2`) deferred pending major bumps (#2382)
+
+### 📚 Docs
+
+* New `docs/explanation/forensic-investigation.md` (EN + FR) explaining the bmad-investigate workflow and evidence-grading discipline; workflow maps updated in both languages
+* Installer prerequisite docs updated across README, install/upgrade/non-interactive/tutorial guides and FR / CS / ZH-CN / VI-VN translations to advertise Node.js 20.12+ (#2387)
+
 ## v6.6.0 - 2026-04-28
 
 ### 💥 Breaking Changes

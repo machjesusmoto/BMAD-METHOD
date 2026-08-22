@@ -2,7 +2,7 @@
 title: "测试选项"
 description: 内置 QA workflow 与 TEA 模块对比：何时用哪个、各自边界是什么
 sidebar:
-  order: 5
+  order: 6
 ---
 
 BMad 有两条测试路径：
@@ -92,7 +92,7 @@ TEA 提供专家测试 agent（Murat）与 9 个结构化 workflow，覆盖策�
 
 按 BMad workflow-map，测试位于阶段 4（实施）：
 
-1. epic 内逐个 story：开发（`DS` / `bmad-dev-story`）+ 代码审查（`CR` / `bmad-code-review`）
+1. epic 内逐个 story：使用 Build（`BD` / `bmad-build`）实施，并按需追加代码审查（`CR` / `bmad-code-review`）
 2. epic 完成后：用 `QA`（通过 Developer 智能体）或 TEA 的 Automate 统一生成/补齐测试
 3. 最后执行复盘（`bmad-retrospective`）
 

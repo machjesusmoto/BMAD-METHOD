@@ -2,7 +2,7 @@
 title: "高级启发"
 description: 使用结构化推理方法推动 LLM 重新思考其工作
 sidebar:
-  order: 6
+  order: 4
 ---
 
 高级启发（advanced elicitation）是“第二轮思考”机制：不是笼统地让模型“再来一次”，而是让它按指定推理方法重审自己的输出。
@@ -36,7 +36,7 @@ sidebar:
 做规格、方案或计划时，先跑一次“事前复盘”通常收益最高，容易提前暴露隐藏风险。
 :::
 
-如果你还处在方向发散阶段，可先用 [头脑风暴](./brainstorming.md)；如果你需要多角色权衡讨论，可用 [派对模式](./party-mode.md)。在进入实现前做问题发现时，可结合 [对抗性评审](./adversarial-review.md)。
+如果你还处在方向发散阶段，可先用 [头脑风暴](./brainstorming.md)；如果你需要多角色权衡讨论，可用 [派对模式](./party-mode.md)。
 
 ## 与相近模式的区别
 
@@ -56,4 +56,3 @@ sidebar:
 
 - [头脑风暴](./brainstorming.md)
 - [派对模式](./party-mode.md)
-- [对抗性评审](./adversarial-review.md)

@@ -12,6 +12,15 @@ const { BMAD_FOLDER_NAME } = require('../ide/shared/path-utils');
 const { InstallPaths } = require('./install-paths');
 const { ExternalModuleManager } = require('../modules/external-manager');
 const { resolveModuleVersion } = require('../modules/version-resolver');
+const { MODULE_HELP_CSV_HEADER } = require('../modules/module-help-schema');
+const {
+  formatRemovedShimNotice,
+  formatRetainedShimNotice,
+  inferShimPreference,
+  readInstalledShims,
+  readInstalledSkillIds,
+  selectShimOutcome,
+} = require('./shim-policy');
 
 const { ExistingInstall } = require('./existing-install');
 const { warnPreNativeSkillsLegacy } = require('./legacy-warnings');
@@ -41,6 +50,39 @@ class Installer {
       const paths = await InstallPaths.create(config);
       const officialModules = await OfficialModules.build(config, paths);
       const existingInstall = await ExistingInstall.detect(paths.bmadDir);
+      const availableShims = await officialModules.discoverShims(config.modules, {
+        channelOptions: config.channelOptions,
+      });
+      const previousManifest = existingInstall.installed ? await this.manifest.read(paths.bmadDir) : null;
+      const installedSkillIds = existingInstall.installed ? await readInstalledSkillIds(paths.bmadDir) : new Set();
+      const shimPolicy = {
+        available: availableShims.length > 0,
+        install: inferShimPreference({
+          requested: config.installShims,
+          persisted: previousManifest?.installShims,
+          availableShims,
+          installedSkillIds,
+          existing: existingInstall.installed,
+        }),
+      };
+
+      const installedShims = existingInstall.installed ? await readInstalledShims(paths.bmadDir) : [];
+      const { retained: retainedShims, removed: removedShims } = selectShimOutcome({
+        installedShims,
+        availableShims,
+        install: shimPolicy.install,
+      });
+
+      // Reported here, not at the prompt, so --yes/--shims/scripted runs get it too.
+      if (retainedShims.length > 0) {
+        await prompts.note(formatRetainedShimNotice(retainedShims), 'Deprecated shim skills retained');
+      }
+      if (removedShims.length > 0) {
+        await prompts.note(formatRemovedShimNotice(removedShims, { canReinstall: shimPolicy.available }), 'Deprecated shim skills removed');
+      }
+
+      // The notices above scroll away on a long install; repeat them in the summary.
+      const shimStatus = { retained: retainedShims.length, removed: removedShims.length };
 
       try {
         await warnPreNativeSkillsLegacy({
@@ -53,7 +95,7 @@ class Installer {
       }
 
       if (existingInstall.installed) {
-        await this._removeDeselectedModules(existingInstall, config, paths);
+        await this._removeDeselectedModules(existingInstall, config, paths, originalConfig._preserveModules || []);
         updateState = await this._prepareUpdateState(paths, config, existingInstall, officialModules);
         await this._removeDeselectedIdes(existingInstall, config, paths);
       }
@@ -75,25 +117,24 @@ class Installer {
       const results = [];
       const addResult = (step, status, detail = '', meta = {}) => results.push({ step, status, detail, ...meta });
 
-      // Capture previously installed skill IDs before they get overwritten
-      const previousSkillIds = new Set();
-      const prevCsvPath = path.join(paths.bmadDir, '_config', 'skill-manifest.csv');
-      if (await fs.pathExists(prevCsvPath)) {
-        try {
-          const csvParse = require('csv-parse/sync');
-          const content = await fs.readFile(prevCsvPath, 'utf8');
-          const records = csvParse.parse(content, { columns: true, skip_empty_lines: true });
-          for (const r of records) {
-            if (r.canonicalId) previousSkillIds.add(r.canonicalId);
-          }
-        } catch (error) {
-          await prompts.log.warn(`Failed to parse skill-manifest.csv: ${error.message}`);
-        }
-      }
+      // Capture previously installed skill rows before they get overwritten
+      const preservedModules = originalConfig._preserveModules || [];
+      const previousSkillManifestRows = await this._readSkillManifestRows(paths.bmadDir);
+      const previousSkillIds = this._getPreviousSkillIdsForCleanup(previousSkillManifestRows, preservedModules);
 
       const allModules = config.modules || [];
 
-      await this._installAndConfigure(config, originalConfig, paths, allModules, allModules, addResult, officialModules);
+      await this._installAndConfigure(
+        config,
+        originalConfig,
+        paths,
+        allModules,
+        allModules,
+        addResult,
+        officialModules,
+        previousSkillManifestRows,
+        shimPolicy,
+      );
 
       await this._setupIdes(config, allModules, paths, addResult, previousSkillIds);
 
@@ -103,6 +144,11 @@ class Installer {
 
       const restoreResult = await this._restoreUserFiles(paths, updateState);
 
+      // Surface any "action needed" post-install messages for installed modules
+      // (e.g. run a setup skill) and let the user acknowledge them before the
+      // final summary, so "BMAD is ready to use!" stays the last thing shown.
+      await this._displayPostInstallMessages(config, officialModules);
+
       // Render consolidated summary
       await this.renderInstallSummary(results, {
         bmadDir: paths.bmadDir,
@@ -111,6 +157,7 @@ class Installer {
         customFiles: restoreResult.customFiles.length > 0 ? restoreResult.customFiles : undefined,
         modifiedFiles: restoreResult.modifiedFiles.length > 0 ? restoreResult.modifiedFiles : undefined,
         preInstallVersions,
+        shimStatus,
       });
 
       return {
@@ -143,10 +190,11 @@ class Installer {
    * Remove modules that were previously installed but are no longer selected.
    * No confirmation — the user's module selection is the decision.
    */
-  async _removeDeselectedModules(existingInstall, config, paths) {
+  async _removeDeselectedModules(existingInstall, config, paths, preservedModules = []) {
     const previouslyInstalled = new Set(existingInstall.moduleIds);
     const newlySelected = new Set(config.modules || []);
-    const toRemove = [...previouslyInstalled].filter((m) => !newlySelected.has(m) && m !== 'core');
+    const preserved = new Set(preservedModules);
+    const toRemove = [...previouslyInstalled].filter((m) => !newlySelected.has(m) && m !== 'core' && !preserved.has(m));
 
     for (const moduleId of toRemove) {
       const modulePath = paths.moduleDir(moduleId);
@@ -211,9 +259,20 @@ class Installer {
   /**
    * Install modules, create directories, generate configs and manifests.
    */
-  async _installAndConfigure(config, originalConfig, paths, officialModuleIds, allModules, addResult, officialModules) {
+  async _installAndConfigure(
+    config,
+    originalConfig,
+    paths,
+    officialModuleIds,
+    allModules,
+    addResult,
+    officialModules,
+    previousSkillManifestRows = [],
+    shimPolicy = null,
+  ) {
     const isQuickUpdate = config.isQuickUpdate();
     const moduleConfigs = officialModules.moduleConfigs;
+    const resolvedShimPolicy = shimPolicy || { available: false, install: false };
 
     const dirResults = { createdDirs: [], movedDirs: [], createdWdsFolders: [] };
 
@@ -237,6 +296,7 @@ class Installer {
           await this._installOfficialModules(config, paths, officialModuleIds, addResult, isQuickUpdate, officialModules, {
             message,
             installedModuleNames,
+            shimPolicy: resolvedShimPolicy,
           });
 
           return `${allModules.length} module(s) ${isQuickUpdate ? 'updated' : 'installed'}`;
@@ -290,25 +350,31 @@ class Installer {
 
         message('Generating manifests...');
         const manifestGen = new ManifestGenerator();
+        const preservedModules = originalConfig._preserveModules || [];
 
         const allModulesForManifest = config.isQuickUpdate()
           ? originalConfig._existingModules || allModules || []
-          : originalConfig._preserveModules
-            ? [...allModules, ...originalConfig._preserveModules]
+          : preservedModules.length > 0
+            ? [...allModules, ...preservedModules]
             : allModules || [];
 
         let modulesForCsvPreserve;
         if (config.isQuickUpdate()) {
           modulesForCsvPreserve = originalConfig._existingModules || allModules || [];
         } else {
-          modulesForCsvPreserve = originalConfig._preserveModules ? [...allModules, ...originalConfig._preserveModules] : allModules;
+          modulesForCsvPreserve = preservedModules.length > 0 ? [...allModules, ...preservedModules] : allModules;
         }
+
+        await this._trackPreservedModuleFiles(paths.bmadDir, preservedModules);
 
         await manifestGen.generateManifests(paths.bmadDir, allModulesForManifest, [...this.installedFiles], {
           ides: config.ides || [],
           preservedModules: modulesForCsvPreserve,
           moduleConfigs,
+          installShims: resolvedShimPolicy.install,
+          shimsAvailable: resolvedShimPolicy.available,
         });
+        await this._appendPreservedSkillManifestRows(paths.bmadDir, previousSkillManifestRows, preservedModules);
 
         // Apply post-install --set TOML patches. Runs after writeCentralConfig
         // (inside generateManifests above) so the patch operates on the
@@ -406,8 +472,89 @@ class Installer {
       const sourceDir = path.dirname(path.join(bmadDir, relativePath));
       if (await fs.pathExists(sourceDir)) {
         await fs.remove(sourceDir);
+        await this._removeEmptyParents(path.dirname(sourceDir), bmadDir);
       }
     }
+  }
+
+  /**
+   * Remove now-empty parent directories left behind after skill dir cleanup.
+   * Walks up from dir, stopping at (and never removing) bmadDir. Best-effort:
+   * a directory that vanishes or fills in mid-walk just ends the walk.
+   * @param {string} dir - Directory to start walking up from
+   * @param {string} bmadDir - BMAD installation directory (boundary)
+   */
+  async _removeEmptyParents(dir, bmadDir) {
+    let current = dir;
+    while (true) {
+      // Path-boundary check (not a string prefix, so siblings like _bmad2 don't match).
+      const rel = path.relative(bmadDir, current);
+      if (rel === '' || rel.startsWith('..') || path.isAbsolute(rel)) break;
+      try {
+        const entries = await fs.readdir(current);
+        if (entries.length > 0) break;
+        await fs.rmdir(current);
+      } catch {
+        break;
+      }
+      current = path.dirname(current);
+    }
+  }
+
+  async _readSkillManifestRows(bmadDir) {
+    const csvPath = path.join(bmadDir, '_config', 'skill-manifest.csv');
+    if (!(await fs.pathExists(csvPath))) return [];
+
+    try {
+      const csvParse = require('csv-parse/sync');
+      const content = await fs.readFile(csvPath, 'utf8');
+      return csvParse.parse(content, { columns: true, skip_empty_lines: true });
+    } catch (error) {
+      await prompts.log.warn(`Failed to parse skill-manifest.csv: ${error.message}`);
+      return [];
+    }
+  }
+
+  _getPreviousSkillIdsForCleanup(previousRows, preservedModules = []) {
+    const preservedModuleSet = new Set(preservedModules || []);
+    const ids = new Set();
+    for (const row of previousRows || []) {
+      if (row.canonicalId && !preservedModuleSet.has(row.module)) {
+        ids.add(row.canonicalId);
+      }
+    }
+    return ids;
+  }
+
+  async _appendPreservedSkillManifestRows(bmadDir, previousRows, preservedModules = []) {
+    if (!previousRows || previousRows.length === 0 || preservedModules.length === 0) return;
+
+    const preservedModuleSet = new Set(preservedModules);
+    const rowsToPreserve = previousRows.filter((row) => row.canonicalId && row.module && preservedModuleSet.has(row.module));
+    if (rowsToPreserve.length === 0) return;
+
+    const csvPath = path.join(bmadDir, '_config', 'skill-manifest.csv');
+    if (!(await fs.pathExists(csvPath))) return;
+
+    const currentRows = await this._readSkillManifestRows(bmadDir);
+    const activeIds = new Set(currentRows.map((row) => row.canonicalId).filter(Boolean));
+    const appendedRows = [];
+
+    for (const row of rowsToPreserve) {
+      if (activeIds.has(row.canonicalId)) continue;
+      activeIds.add(row.canonicalId);
+      appendedRows.push(
+        [row.canonicalId, row.name || row.canonicalId, row.description || '', row.module, row.path || '']
+          .map((field) => this.escapeCSVField(field))
+          .join(','),
+      );
+    }
+
+    if (appendedRows.length === 0) return;
+
+    const currentContent = await fs.readFile(csvPath, 'utf8');
+    const prefix = currentContent.endsWith('\n') ? currentContent : `${currentContent}\n`;
+    await fs.writeFile(csvPath, prefix + appendedRows.join('\n') + '\n', 'utf8');
   }
 
   /**
@@ -561,10 +708,10 @@ class Installer {
   /**
    * Sync src/scripts/* → _bmad/scripts/ so shared Python scripts
    * (e.g. resolve_customization.py) are available at install time.
+   * Excludes dev-only tests and Python caches so they don't ship to users.
    * Wipes the destination first so files removed or renamed in source
    * don't linger and get recorded as installed. Also seeds
-   * _bmad/custom/.gitignore on fresh installs so *.user.toml overrides
-   * stay out of version control.
+   * gitignore files for personal overrides and generated render snapshots.
    */
   async _installSharedScripts(paths) {
     const srcScriptsDir = path.join(paths.srcDir, 'src', 'scripts');
@@ -574,7 +721,12 @@ class Installer {
 
     await fs.remove(paths.scriptsDir);
     await fs.ensureDir(paths.scriptsDir);
-    await fs.copy(srcScriptsDir, paths.scriptsDir, { overwrite: true });
+    // Ship only the runtime scripts — dev-only tests and Python caches must not land in user projects.
+    const isInstallable = (srcPath) => {
+      const base = path.basename(srcPath);
+      return base !== 'tests' && base !== '__pycache__' && base !== '.pytest_cache' && !base.endsWith('.pyc');
+    };
+    await fs.copy(srcScriptsDir, paths.scriptsDir, { overwrite: true, filter: isInstallable });
     await this._trackFilesRecursive(paths.scriptsDir);
 
     const customGitignore = path.join(paths.customDir, '.gitignore');
@@ -582,6 +734,14 @@ class Installer {
       await fs.writeFile(customGitignore, '*.user.toml\n', 'utf8');
       this.installedFiles.add(customGitignore);
     }
+
+    const renderDir = path.join(paths.bmadDir, 'render');
+    const renderGitignore = path.join(renderDir, '.gitignore');
+    if (!(await fs.pathExists(renderGitignore))) {
+      await fs.ensureDir(renderDir);
+      await fs.writeFile(renderGitignore, '*\n!.gitignore\n', 'utf8');
+    }
+    this.installedFiles.add(renderGitignore);
   }
 
   async _trackFilesRecursive(dir) {
@@ -596,6 +756,15 @@ class Installer {
     }
   }
 
+  async _trackPreservedModuleFiles(bmadDir, preservedModules = []) {
+    for (const moduleName of preservedModules) {
+      const modulePath = path.join(bmadDir, moduleName);
+      if (await fs.pathExists(modulePath)) {
+        await this._trackFilesRecursive(modulePath);
+      }
+    }
+  }
+
   /**
    * Install official (non-custom) modules.
    * @param {Object} config - Installation configuration
@@ -606,7 +775,7 @@ class Installer {
    * @param {Object} ctx - Shared context: { message, installedModuleNames }
    */
   async _installOfficialModules(config, paths, officialModuleIds, addResult, isQuickUpdate, officialModules, ctx) {
-    const { message, installedModuleNames } = ctx;
+    const { message, installedModuleNames, shimPolicy } = ctx;
     const { CustomModuleManager } = require('../modules/custom-module-manager');
 
     for (const moduleName of officialModuleIds) {
@@ -628,6 +797,7 @@ class Installer {
           installer: this,
           silent: true,
           channelOptions: config.channelOptions,
+          installShims: shimPolicy.install,
         },
       );
 
@@ -639,13 +809,7 @@ class Installer {
       const moduleInfo = sourcePath ? await officialModules.getModuleInfo(sourcePath, moduleName, '') : null;
       const displayName = moduleInfo?.name || moduleName;
 
-      const externalResolution = officialModules.externalModuleManager.getResolution(moduleName);
-      let communityResolution = null;
-      if (!externalResolution) {
-        const { CommunityModuleManager } = require('../modules/community-manager');
-        communityResolution = new CommunityModuleManager().getResolution(moduleName);
-      }
-      const resolution = externalResolution || communityResolution;
+      const resolution = officialModules.externalModuleManager.getResolution(moduleName);
       const cachedResolution = CustomModuleManager._resolutionCache.get(moduleName);
       const versionInfo = await resolveModuleVersion(moduleName, {
         moduleSourcePath: sourcePath,
@@ -762,8 +926,9 @@ class Installer {
           const fullPath = path.join(dir, entry.name);
 
           if (entry.isDirectory()) {
-            // Skip certain directories
-            if (entry.name === 'node_modules' || entry.name === '.git') {
+            const relativeDir = path.relative(bmadDir, fullPath);
+            // Render snapshots are generated state, not user-authored customization.
+            if (entry.name === 'node_modules' || entry.name === '.git' || relativeDir === 'render') {
               continue;
             }
             await scanDirectory(fullPath);
@@ -851,7 +1016,7 @@ class Installer {
 
     // Get all installed module directories
     const entries = await fs.readdir(bmadDir, { withFileTypes: true });
-    const nonModuleDirs = new Set(['_config', '_memory', 'memory', 'docs', 'scripts', 'custom']);
+    const nonModuleDirs = new Set(['_config', '_memory', 'memory', 'docs', 'scripts', 'custom', 'render']);
     const installedModules = entries.filter((entry) => entry.isDirectory() && !nonModuleDirs.has(entry.name)).map((entry) => entry.name);
 
     // Generate config.yaml for each installed module
@@ -942,13 +1107,13 @@ class Installer {
    */
   async mergeModuleHelpCatalogs(bmadDir, _agentEntries = []) {
     const allRows = [];
-    const headerRow = 'module,skill,display-name,menu-code,description,action,args,phase,after,before,required,output-location,outputs';
+    const headerRow = MODULE_HELP_CSV_HEADER;
     const COLUMN_COUNT = 13;
     const PHASE_INDEX = 7;
 
     // Get all installed module directories
     const entries = await fs.readdir(bmadDir, { withFileTypes: true });
-    const nonModuleDirs = new Set(['_config', '_memory', 'memory', 'docs', 'scripts', 'custom']);
+    const nonModuleDirs = new Set(['_config', '_memory', 'memory', 'docs', 'scripts', 'custom', 'render']);
     const installedModules = entries.filter((entry) => entry.isDirectory() && !nonModuleDirs.has(entry.name)).map((entry) => entry.name);
 
     // Add core module to scan (it's installed at root level as _config, but we check src/core-skills)
@@ -975,9 +1140,19 @@ class Installer {
           const content = await fs.readFile(helpFilePath, 'utf8');
           const lines = content.split('\n').filter((line) => line.trim() && !line.startsWith('#'));
 
+          let headerWarned = false;
           for (const line of lines) {
-            // Skip header row
+            // Header row: warn on drift from canonical schema, then skip.
+            // Data rows are loaded positionally regardless, so the warning
+            // is advisory — the maintainer should rename their columns.
             if (line.startsWith('module,')) {
+              if (!headerWarned && line.trim() !== headerRow) {
+                await prompts.log.warn(
+                  `  ${moduleName}/module-help.csv header does not match canonical schema. ` +
+                    `Expected: ${headerRow} | Found: ${line.trim()} | Data loaded positionally.`,
+                );
+                headerWarned = true;
+              }
               continue;
             }
 
@@ -1112,6 +1287,12 @@ class Installer {
     if (context.modifiedFiles && context.modifiedFiles.length > 0) {
       lines.push(`  ${color.yellow(`Modified files backed up (.bak): ${context.modifiedFiles.length}`)}`);
     }
+    if (context.shimStatus?.retained > 0) {
+      lines.push(`  ${color.yellow(`Deprecated shim skills retained: ${context.shimStatus.retained}`)} (re-run to remove them)`);
+    }
+    if (context.shimStatus?.removed > 0) {
+      lines.push(`  ${color.green(`Deprecated shim skills removed: ${context.shimStatus.removed}`)}`);
+    }
 
     // Next steps
     lines.push(
@@ -1119,6 +1300,23 @@ class Installer {
       '  Get started:',
       `    1. Launch your AI agent from your project folder`,
       `    2. Not sure what to do? Invoke the ${color.cyan('bmad-help')} skill and ask it what to do!`,
+    );
+
+    // Repeat the uv warning here when it applies. The pre-install probe fires
+    // before every prompt in the run, so by now it is far up the scrollback —
+    // and this box is titled "BMAD is ready to use!", which is only true if
+    // the rendered skills can actually start.
+    const { detectUv } = require('./uv-check');
+    if (!detectUv()) {
+      lines.push(
+        '',
+        `    ${color.yellow('⚠ uv is not installed.')} ${color.cyan('bmad-build')} and ${color.cyan('bmad-build-auto')} render through`,
+        `    ${color.cyan('uv run')} and will halt on activation until you set it up — ask your agent to`,
+        `    "install and set up uv for me", or see https://docs.astral.sh/uv/`,
+      );
+    }
+
+    lines.push(
       '',
       `    Blog, Docs and Guides: ${color.blue('https://bmadcode.com/')}`,
       `    Community: ${color.blue('https://discord.gg/gk8jAdXWmj')}`,
@@ -1128,6 +1326,56 @@ class Installer {
       rounded: true,
       formatBorder: color.green,
     });
+  }
+
+  /**
+   * Display registry-defined post-install messages for the modules installed in
+   * this run. These are "action needed" notices (e.g. "run the bmad-loop-setup
+   * skill") that the user must see to finish setup. They are defined via the
+   * `post-install-message` property on a module's bmad-modules.yaml entry.
+   *
+   * Interactive installs require the user to acknowledge each message (press
+   * Enter); non-interactive (--yes / skipPrompts) installs print the message
+   * and continue without blocking, so CI/scripted installs don't hang.
+   *
+   * @param {Object} config - Install config (config.modules, config.skipPrompts)
+   * @param {Object} officialModules - OfficialModules instance (carries the registry)
+   */
+  async _displayPostInstallMessages(config, officialModules) {
+    const moduleCodes = config.modules || [];
+    if (moduleCodes.length === 0) return;
+
+    const externalManager = officialModules.externalModuleManager;
+    if (!externalManager) return;
+
+    const color = await prompts.getColor();
+
+    for (const code of moduleCodes) {
+      let moduleInfo;
+      try {
+        moduleInfo = await externalManager.getModuleByCode(code);
+      } catch {
+        continue; // Built-in modules (core/bmm) aren't in the registry — skip.
+      }
+
+      const message = moduleInfo && moduleInfo.postInstallMessage;
+      if (!message) continue;
+
+      await prompts.box(String(message).trim(), `⚑ Action needed — ${moduleInfo.name || code}`, {
+        rounded: true,
+        formatBorder: color.yellow,
+      });
+
+      // Interactive: require the user to acknowledge before continuing. Skip the
+      // blocking prompt in non-interactive installs (the message is still shown).
+      if (!config.skipPrompts) {
+        await prompts.text({
+          message: 'Press Enter to acknowledge',
+          placeholder: '',
+          default: '',
+        });
+      }
+    }
   }
 
   /**
@@ -1146,9 +1394,31 @@ class Installer {
 
     // Detect existing installation
     const existingInstall = await ExistingInstall.detect(bmadDir);
-    const installedModules = existingInstall.moduleIds;
     const configuredIdes = existingInstall.ides;
     const projectRoot = path.dirname(bmadDir);
+
+    // Resolve any legacy/aliased module codes (e.g. an install recorded as
+    // `bauto` before the registry renamed it to `bmad-loop`) to their current
+    // canonical code up front. Without this, a renamed module's old installs
+    // would fall out of `availableModuleIds` below and get silently frozen
+    // (see the `baut` → `automator` incident in CHANGELOG v6.7.1) instead of
+    // migrating forward.
+    const aliasMigrations = [];
+    const seenModuleIds = new Set();
+    const installedModules = [];
+    for (const rawId of existingInstall.moduleIds) {
+      const canonicalId = await this.externalModuleManager.resolveCanonicalCode(rawId);
+      if (canonicalId !== rawId) {
+        aliasMigrations.push({ from: rawId, to: canonicalId });
+      }
+      if (!seenModuleIds.has(canonicalId)) {
+        seenModuleIds.add(canonicalId);
+        installedModules.push(canonicalId);
+      }
+    }
+    for (const { from, to } of aliasMigrations) {
+      await prompts.log.info(`Migrating installed module '${from}' to its renamed successor '${to}'.`);
+    }
 
     // Get available modules (what we have source for)
     const availableModulesData = await new OfficialModules().listAvailable();
@@ -1163,21 +1433,6 @@ class Installer {
           name: externalModule.name,
           isExternal: true,
           fromExternal: true,
-        });
-      }
-    }
-
-    // Add installed community modules to available modules
-    const { CommunityModuleManager } = require('../modules/community-manager');
-    const communityMgr = new CommunityModuleManager();
-    const communityModules = await communityMgr.listAll();
-    for (const communityModule of communityModules) {
-      if (installedModules.includes(communityModule.code) && !availableModules.some((m) => m.id === communityModule.code)) {
-        availableModules.push({
-          id: communityModule.code,
-          name: communityModule.displayName,
-          isExternal: true,
-          fromCommunity: true,
         });
       }
     }
@@ -1300,6 +1555,7 @@ class Installer {
       // (`applySetOverrides`) runs at the end of quick-update too. The
       // installer.install path applies them after writeCentralConfig.
       setOverrides: config.setOverrides || {},
+      installShims: config.installShims,
       actionType: 'install',
       _quickUpdate: true,
       _preserveModules: skippedModules,
@@ -1308,6 +1564,18 @@ class Installer {
     };
 
     await this.install(installConfig);
+
+    // Now that the canonical module has been installed successfully, remove
+    // the stale directory left behind under its old code so the two don't
+    // coexist (e.g. `_bmad/bauto/` once `_bmad/bmad-loop/` is in place).
+    for (const { from, to } of aliasMigrations) {
+      if (!modulesToUpdate.includes(to)) continue; // new code wasn't actually installed this run
+      const oldModuleDir = path.join(bmadDir, from);
+      if (await fs.pathExists(oldModuleDir)) {
+        await fs.remove(oldModuleDir);
+        await prompts.log.success(`Removed legacy '${from}' directory after migrating to '${to}'.`);
+      }
+    }
 
     return {
       success: true,

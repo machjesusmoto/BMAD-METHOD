@@ -2,7 +2,7 @@
 title: "为什么解决方案阶段很重要"
 description: 理解为什么解决方案阶段对于多史诗项目至关重要
 sidebar:
-  order: 3
+  order: 5
 ---
 
 Phase 3（solutioning）把“要做什么”（planning 产出）转成“如何实现”（`architecture` 设计 + 工作拆分）。它的核心价值是：在开发前先把跨 `epic` 的关键技术决策写清楚，让后续 `story` 实施保持一致。
@@ -49,14 +49,16 @@ solutioning 的本质不是“多写一份文档”，而是把高冲突风险�
 - 安全策略分叉
 - 中后期返工成本
 
-## 什么时候需要 solutioning
+## 选择 solutioning 深度
 
-| 流程 | 需要 solutioning？ |
+| 工作特征 | Solutioning 建议 |
 |-------|----------------------|
-| Quick Flow | 否 - 完全跳过 |
-| BMad Method Simple | 可选 |
-| BMad Method Complex | 是 |
-| Enterprise | 是 |
+| 约定明确的局部变更 | 通常不需要 |
+| 多个相关组件且约束已知 | 按协同风险选择 |
+| 多个 epic 或跨系统决策 | 需要用它对齐实施 |
+| 受监管、高风险或 enterprise 项目 | 遵循必要的治理要求；通常必须进行 solutioning |
+
+Solutioning 改变提供给 `bmad-build` 的上下文，不改变实施 workflow。
 
 :::tip[经验法则]
 只要需求会拆成多个 `epic`，并且可能由不同智能体并行实现，就应该做 solutioning。

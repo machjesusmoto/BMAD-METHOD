@@ -61,6 +61,10 @@ class Manifest {
       ides: data.ides || [],
     };
 
+    if (typeof data.installShims === 'boolean') {
+      manifestData.installation.installShims = data.installShims;
+    }
+
     // Write YAML manifest
     // Clean the manifest data to remove any non-serializable values
     const cleanManifestData = structuredClone(manifestData);
@@ -106,6 +110,7 @@ class Manifest {
           version: manifestData.installation?.version,
           installDate: manifestData.installation?.installDate,
           lastUpdated: manifestData.installation?.lastUpdated,
+          installShims: manifestData.installation?.installShims,
           modules: moduleNames, // Simple array of module names for backward compatibility
           modulesDetailed: hasDetailedModules ? modules : null, // New detailed format
           ides: manifestData.ides || [],
@@ -153,6 +158,7 @@ class Manifest {
       version: manifest.installation?.version,
       installDate: manifest.installation?.installDate,
       lastUpdated: manifest.installation?.lastUpdated,
+      installShims: manifest.installation?.installShims,
       modules: moduleNames,
       modulesDetailed: hasDetailedModules ? modules : null,
       ides: manifest.ides || [],
@@ -307,28 +313,6 @@ class Manifest {
         repoUrl: moduleInfo.url || null,
         channel: externalResolution?.channel || null,
         sha: externalResolution?.sha || null,
-      };
-    }
-
-    // Check if this is a community module
-    const { CommunityModuleManager } = require('../modules/community-manager');
-    const communityMgr = new CommunityModuleManager();
-    const communityInfo = await communityMgr.getModuleByCode(moduleName);
-    if (communityInfo) {
-      const communityResolution = communityMgr.getResolution(moduleName);
-      const versionInfo = await resolveModuleVersion(moduleName, {
-        moduleSourcePath,
-        fallbackVersion: communityInfo.version,
-      });
-      return {
-        version: communityResolution?.version || versionInfo.version || communityInfo.version,
-        source: 'community',
-        npmPackage: communityInfo.npmPackage || null,
-        repoUrl: communityInfo.url || null,
-        channel: communityResolution?.channel || null,
-        sha: communityResolution?.sha || null,
-        registryApprovedTag: communityResolution?.registryApprovedTag || null,
-        registryApprovedSha: communityResolution?.registryApprovedSha || null,
       };
     }
 

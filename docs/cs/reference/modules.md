@@ -2,7 +2,7 @@
 title: Oficiální moduly
 description: Doplňkové moduly pro tvorbu vlastních agentů, kreativní inteligenci, vývoj her a testování
 sidebar:
-  order: 4
+  order: 5
 ---
 
 BMad se rozšiřuje prostřednictvím oficiálních modulů, které vyberete během instalace. Tyto doplňkové moduly poskytují specializované agenty, workflow a úkoly pro specifické domény nad rámec vestavěného jádra a BMM (Agile suite).
@@ -43,7 +43,7 @@ AI nástroje pro strukturovanou kreativitu, ideaci a inovace v rané fázi vývo
 
 ## Game Dev Studio
 
-Strukturované workflow pro vývoj her adaptované pro Unity, Unreal, Godot a vlastní enginy. Podporuje rychlé prototypování přes Quick Flow a plnoscálovou produkci s epicky řízenými sprinty.
+Strukturované workflow pro vývoj her adaptované pro Unity, Unreal, Godot a vlastní enginy. Podporuje hloubku plánování od rychlého prototypování po plnoscálovou produkci; implementace se sbíhá do Build.
 
 - **Kód:** `gds`
 - **npm:** [`bmad-game-dev-studio`](https://www.npmjs.com/package/bmad-game-dev-studio)
@@ -52,7 +52,7 @@ Strukturované workflow pro vývoj her adaptované pro Unity, Unreal, Godot a vl
 **Poskytuje:**
 
 - Workflow pro generování Game Design Document (GDD)
-- Režim Quick Dev pro rychlé prototypování
+- Herní kontext a plánování pro standardní implementační loop Build
 - Podporu narativního designu pro postavy, dialogy a budování světa
 - Pokrytí 21+ typů her s architektonickým vedením specifickým pro engine
 

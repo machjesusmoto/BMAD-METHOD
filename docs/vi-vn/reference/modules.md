@@ -2,7 +2,7 @@
 title: Các Module Chính Thức
 description: Các module bổ sung để xây agent tùy chỉnh, tăng cường sáng tạo, phát triển game và kiểm thử
 sidebar:
-  order: 4
+  order: 5
 ---
 
 BMad được mở rộng thông qua các module chính thức mà bạn chọn trong quá trình cài đặt. Những module bổ sung này cung cấp agent, workflow và task chuyên biệt cho các lĩnh vực cụ thể, vượt ra ngoài phần lõi tích hợp sẵn và BMM (Agile suite).
@@ -43,7 +43,7 @@ Bộ công cụ vận hành bởi AI dành cho sáng tạo có cấu trúc, phá
 
 ## Game Dev Studio
 
-Các workflow phát triển game có cấu trúc, được điều chỉnh cho Unity, Unreal, Godot và các engine tùy chỉnh. Hỗ trợ làm prototype nhanh qua Quick Flow và sản xuất toàn diện bằng sprint theo epic.
+Các workflow phát triển game có cấu trúc, được điều chỉnh cho Unity, Unreal, Godot và các engine tùy chỉnh. Hỗ trợ độ sâu planning từ prototype nhanh đến sản xuất toàn diện; implementation hội tụ vào Build.
 
 - **Mã:** `gds`
 - **npm:** [`bmad-game-dev-studio`](https://www.npmjs.com/package/bmad-game-dev-studio)
@@ -52,7 +52,7 @@ Các workflow phát triển game có cấu trúc, được điều chỉnh cho U
 **Cung cấp:**
 
 - Workflow tạo Game Design Document (GDD)
-- Chế độ Quick Dev cho làm prototype nhanh
+- Ngữ cảnh và planning game-specific cho implementation loop Build chuẩn
 - Hỗ trợ thiết kế narrative cho nhân vật, hội thoại và world-building
 - Bao phủ hơn 21 thể loại game cùng hướng dẫn kiến trúc theo engine
 

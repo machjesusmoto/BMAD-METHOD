@@ -2,7 +2,7 @@
 title: "安装自定义和社区模块"
 description: 从社区注册表、Git 仓库或本地路径安装第三方模块
 sidebar:
-  order: 3
+  order: 2
 ---
 
 使用 BMad 安装程序从社区注册表、第三方 Git 仓库或本地文件路径添加模块。
@@ -15,7 +15,7 @@ sidebar:
 - 从私有或自托管 Git 服务器安装模块
 
 :::note[前置条件]
-需要 [Node.js](https://nodejs.org) v20+ 和 `npx`（npm 自带）。自定义和社区模块可以在全新安装时选择，也可以添加到现有安装中。
+需要 [Node.js](https://nodejs.org) v20.12+ 和 `npx`（npm 自带）。自定义和社区模块可以在全新安装时选择，也可以添加到现有安装中。
 :::
 
 ## 社区模块

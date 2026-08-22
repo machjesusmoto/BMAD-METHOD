@@ -2,7 +2,7 @@
 title: "官方模块"
 description: BMad 可选模块参考：能力边界、适用场景与外部资源
 sidebar:
-  order: 4
+  order: 5
 ---
 
 BMad 通过可选模块扩展能力。你可以在安装时按需选择模块，为当前项目增加特定领域的 `agent`、`workflow` 与 `skill`。
@@ -53,7 +53,7 @@ BMad 通过可选模块扩展能力。你可以在安装时按需选择模块，
 
 **你会得到：**
 - 游戏设计文档（GDD）生成流程
-- 面向快速迭代的 Quick Dev 模式
+- 面向快速迭代的 Build 模式
 - 叙事设计支持（角色、对话、世界观）
 - 多引擎适配建议（Unity/Unreal/Godot 等）
 

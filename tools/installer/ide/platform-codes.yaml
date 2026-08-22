@@ -35,6 +35,13 @@ platforms:
       target_dir: .agent/skills
       global_target_dir: ~/.gemini/antigravity/skills
 
+  antigravity-cli:
+    name: "Antigravity CLI (AGY)"
+    preferred: false
+    installer:
+      target_dir: .agents/skills
+      global_target_dir: ~/.gemini/antigravity-cli/skills
+
   auggie:
     name: "Auggie"
     preferred: false
@@ -69,6 +76,13 @@ platforms:
     installer:
       target_dir: .agents/skills
       global_target_dir: ~/.codex/skills
+
+  codewhale:
+    name: "CodeWhale"
+    preferred: false
+    installer:
+      target_dir: .codewhale/skills
+      global_target_dir: ~/.codewhale/skills
 
   codebuddy:
     name: "CodeBuddy"
@@ -154,6 +168,20 @@ platforms:
     installer:
       target_dir: .agents/skills
       global_target_dir: ~/.config/agents/skills
+
+  grok:
+    name: "Grok"
+    preferred: false
+    installer:
+      target_dir: .agents/skills
+      global_target_dir: ~/.grok/skills
+
+  hermes:
+    name: "Hermes Agent"
+    preferred: false
+    installer:
+      target_dir: .agents/skills
+      global_target_dir: ~/.hermes/skills
 
   iflow:
     name: "iFlow"
@@ -313,6 +341,13 @@ platforms:
     installer:
       target_dir: .agents/skills
       global_target_dir: ~/.agents/skills
+
+  zcode:
+    name: "ZCode"
+    preferred: false
+    installer:
+      target_dir: .zcode/skills
+      global_target_dir: ~/.zcode/skills
 
   zencoder:
     name: "Zencoder"

@@ -1,31 +1,39 @@
 ---
 title: Core Tools
-description: Reference for all built-in tasks and workflows available in every BMad installation without additional modules.
+description: Reference for the core module's built-in skills.
 sidebar:
-  order: 2
+  order: 3
 ---
 
-Every BMad installation includes a set of core skills that can be used in conjunction with any anything you are doing — standalone tasks and workflows that work across all projects, all modules, and all phases. These are always available regardless of which optional modules you install.
+Every BMad installation includes the **core module** — a small set of skills that work across all projects, all modules, and all phases. This page covers those seven core skills: the four kernel tools plus the three **thinking skills** (brainstorming, forge idea, party mode).
 
 :::tip[Quick Path]
-Run any core tool by typing its skill name (e.g., `bmad-help`) in your IDE. No agent session required.
+Run any tool by typing its skill name (e.g., `bmad-help`) in your IDE. No agent session required.
 :::
 
 ## Overview
 
-| Tool | Type | Purpose |
-| --- | --- | --- |
-| [`bmad-help`](#bmad-help) | Task | Get context-aware guidance on what to do next |
-| [`bmad-brainstorming`](#bmad-brainstorming) | Workflow | Facilitate interactive brainstorming sessions |
-| [`bmad-party-mode`](#bmad-party-mode) | Workflow | Orchestrate multi-agent group discussions |
-| [`bmad-distillator`](#bmad-distillator) | Task | Lossless LLM-optimized compression of documents |
-| [`bmad-advanced-elicitation`](#bmad-advanced-elicitation) | Task | Push LLM output through iterative refinement methods |
-| [`bmad-review-adversarial-general`](#bmad-review-adversarial-general) | Task | Cynical review that finds what's missing and what's wrong |
-| [`bmad-review-edge-case-hunter`](#bmad-review-edge-case-hunter) | Task | Exhaustive branching-path analysis for unhandled edge cases |
-| [`bmad-editorial-review-prose`](#bmad-editorial-review-prose) | Task | Clinical copy-editing for communication clarity |
-| [`bmad-editorial-review-structure`](#bmad-editorial-review-structure) | Task | Structural editing — cuts, merges, and reorganization |
-| [`bmad-shard-doc`](#bmad-shard-doc) | Task | Split large markdown files into organized sections |
-| [`bmad-index-docs`](#bmad-index-docs) | Task | Generate or update an index of all docs in a folder |
+**Core module (always installed):**
+
+| Tool                                                      | Purpose                                                                                                      |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| [`bmad-help`](#bmad-help)                                 | Get context-aware guidance on what to do next                                                                |
+| [`bmad-advanced-elicitation`](#bmad-advanced-elicitation) | Push LLM output through iterative refinement methods                                                         |
+| [`bmad-review`](#bmad-review)                             | Multi-lens review — adversarial, edge-case, and verification-gap for code; structure and prose for documents |
+| [`bmad-customize`](#bmad-customize)                       | Create and verify BMad customization overrides                                                               |
+
+**Thinking skills:**
+
+| Tool                                        | Purpose                                                             |
+| ------------------------------------------- | ------------------------------------------------------------------- |
+| [`bmad-brainstorming`](#bmad-brainstorming) | Facilitate interactive brainstorming sessions                       |
+| [`bmad-deep-recon`](#bmad-deep-recon)       | Decision-grade research: draft, process, or run — any subject       |
+| [`bmad-forge-idea`](#bmad-forge-idea)       | Pressure-test an idea until it hardens, proves out, or dies cheaply |
+| [`bmad-party-mode`](#bmad-party-mode)       | Orchestrate multi-agent group discussions                           |
+
+:::note[Moved and removed]
+`bmad-spec` now ships with the BMM module as a Phase 2 planning workflow — see the [Workflow Map](./workflow-map.md#phase-2-planning). The `bmad-shard-doc` and `bmad-index-docs` utilities have been removed. The former `bmad-editorial-review`, `bmad-editorial-review-prose`, `bmad-editorial-review-structure`, `bmad-review-adversarial-general`, `bmad-review-edge-case-hunter`, and `bmad-review-verification-gap` skills are all merged into `bmad-review`, whose editorial lenses replace the separate editorial skill; the old IDs still resolve via forwarders for compatibility. The former `bmad-market-research`, `bmad-domain-research`, and `bmad-technical-research` workflows are merged into `bmad-deep-recon` as research types, with the old IDs forwarding the same way.
+:::
 
 ## bmad-help
 
@@ -49,7 +57,103 @@ Run any core tool by typing its skill name (e.g., `bmad-help`) in your IDE. No a
 
 **Output:** Prioritized list of recommended next steps with skill commands
 
-## bmad-brainstorming
+## bmad-advanced-elicitation
+
+**Push the LLM to reconsider, refine, and improve its recent output.** — BMad's shared refinement checkpoint: other skills invoke it at natural pauses, and you can call it directly on anything recent in the conversation.
+
+**Use it when:**
+
+- LLM output feels shallow or generic
+- You want to explore a topic from multiple analytical angles
+- You're refining a critical document and want deeper thinking
+- You want a known method by name — Socratic, first principles, pre-mortem, red team
+
+**How it works:**
+
+1. Targets the most recent output in the conversation unless you point it at something else
+2. Offers a short menu of best-fit elicitation methods for the content
+3. Applies the chosen methods against the target
+4. Hands back the improved version so the invoking flow resumes where it paused
+
+**Input:** The recent output to refine (default), or any content you point it at; optionally a named method
+
+**Output:** Enhanced version of the content with improvements applied
+
+## bmad-review
+
+**Multi-lens review over any diff, doc, or artifact.** — Runs review lenses — each a distinct method and stance — and reports every finding in one canonical shape. Zero findings is a valid outcome; it never pads to look thorough. Each lens declares what it applies to, so a diff draws the code lenses and a document draws the editorial ones.
+
+**The shipped lenses:**
+
+| Lens                 | Applies to             | Method                                                                                      |
+| -------------------- | ---------------------- | ------------------------------------------------------------------------------------------- |
+| **Adversarial**      | Anything               | Forced-finding review (≥10 issues) that looks for what's missing, not only what's wrong; empty lists are not allowed  |
+| **Edge case**        | Anything               | Walks every branching path and boundary condition in content that defines behavior          |
+| **Verification gap** | Code                   | Finds changed behavior that could regress without reliable verification catching it         |
+| **Structure**        | Documents              | Proposes cuts, merges, moves, and condensing — does the document's shape serve its purpose? |
+| **Prose**            | Documents              | Copy-edits for communication issues that impede comprehension                               |
+
+The two editorial lenses hold content sacrosanct: they never challenge your ideas, only how they're organized and expressed, and they propose rather than execute. Prose runs on top of the structure findings when both are selected.
+
+The set isn't fixed: a `customize.toml` override can add lenses or replace shipped ones, and a review runs whatever resolves.
+
+**Use it when:**
+
+- You need quality assurance before finalizing a deliverable
+- You want exhaustive edge-case coverage of code or logic
+- You want to know whether a change is adequately verified
+- You've drafted a document and want it tightened and polished
+- You want to reduce length while preserving comprehension
+
+**How it works:**
+
+1. Loads the content, identifies its type — diff, file, function, or document — and whether it is code or docs
+2. Selects lenses: the ones you name, or every enabled lens whose applicability and conditions fit the content
+3. Announces the plan — which lenses will run, and which run on top of another's findings
+4. Runs the independent lenses — in parallel via subagents when the platform supports it — then the dependent ones on top of their results
+5. Assembles one findings array; overlap between lenses is signal, not duplication
+
+**Input:**
+
+- `content` (required) — Diff, branch, uncommitted changes, file, spec, story, or any document
+- `lenses` (optional) — one or more lens codes or names; default is every lens that fits the content
+- `also_consider` (optional) — Additional areas to keep in mind
+- `style_guide` / `reader_type` (optional, editorial lenses) — a project style guide, and `humans` (default) for clarity/flow or `llm` for precision/consistency
+
+**Output:** JSON findings array (each finding carries `lens`, `location`, `trigger_condition`, `guard_snippet`, `potential_consequence`) and/or a markdown report grouped by lens. The editorial lenses render a findings table you accept or reject row by row, plus an estimated reduction when structural changes are proposed.
+
+:::note[Used by other workflows]
+Code Review workflows in other modules run the code lenses automatically, and the document workflows (PRD, UX, architecture, product brief) run the editorial lenses as their finalize step. Custom lenses can be added — and shipped ones tuned or disabled — through the skill's `customize.toml`.
+:::
+
+## bmad-customize
+
+**Create and verify customization overrides.** — Helps you change how an installed BMad agent or workflow behaves without hand-authoring TOML.
+
+**Use it when:**
+
+- You want to change an agent or workflow behavior
+- You need to add persistent facts, activation hooks, or custom menu items
+- You want the right override scope selected and verified automatically
+
+**How it works:**
+
+1. Scans installed BMad skills for customizable surfaces
+2. Selects the right scope for your requested change
+3. Writes override files under `_bmad/custom/`
+4. Verifies the merged configuration
+
+**Input:** Natural language description of the customization you want
+
+**Output:** TOML override files under `_bmad/custom/`
+
+For a detailed guide on customizing BMad, see [How to Customize BMad](../how-to/customize-bmad.md).
+
+## Thinking Skills
+
+The skills below round out the core module — general-purpose thinking tools that any phase or module can lean on.
+
+### bmad-brainstorming
 
 **Generate diverse ideas through interactive creative techniques.** — A facilitated brainstorming session that loads proven ideation methods from a technique library and guides you toward 100+ ideas before organizing.
 
@@ -69,13 +173,60 @@ Run any core tool by typing its skill name (e.g., `bmad-help`) in your IDE. No a
 
 **Input:** Brainstorming topic or problem statement, optional context file
 
-**Output:** `brainstorming-session-{date}.md` with all generated ideas
+**Output:** a self-contained `brainstorm.html` keepsake of the session, an optional `brainstorm-intent.md` for downstream skills, and a `.memlog.md` session record
 
 :::note[Quantity Target]
 The magic happens in ideas 50–100. The workflow encourages generating 100+ ideas before organization.
 :::
 
-## bmad-party-mode
+### bmad-deep-recon
+
+**Decision-grade research on any subject, three ways.** — Draft a deep-research prompt for the AI tool you already subscribe to, process a finished report into a cited summary downstream skills consume directly, or run the research in place through parallel web fan-out.
+
+**Use it when:**
+
+- A decision should rest on evidence instead of the model's memory
+- You need market, domain, technical, competitive, user-voice, or literature research
+- You have a research report from any source and want it distilled for downstream use
+- You're choosing between named options and want a structured comparison
+
+**How it works:**
+
+1. Detects the mode — draft, process, or run — and infers the research type from your ask
+2. Loads the type's pack: prioritized dimensions, source craft, freshness rules
+3. Run mode plans at one gate, fans out firewalled research assistants, and verifies claims as they land
+4. Draft and Process round-trip through your own deep-research tool instead
+5. Refresh and Deepen update an existing report without re-researching it
+
+**Input:** The decision and topic, a report to process, or an existing research folder to refresh
+
+**Output:** A cited `research.md` with metadata frontmatter, plus an optional self-contained HTML briefing
+
+For the three modes, how to choose between them, and what happens inside a run, see [Deep Recon](../explanation/deep-recon.md).
+
+### bmad-forge-idea
+
+**Pressure-test an idea until it hardens, proves out, or dies cheaply.** — An adversarial interrogator drives a half-formed idea one question at a time, bringing two characters to every branch, until what survives is something you can act on with conviction.
+
+**Use it when:**
+
+- You hold an idea and want it stress-tested before you invest in it
+- You want an honest read on whether to kill it
+- You need a thinking partner that pushes back instead of agreeing
+
+**How it works:**
+
+1. Establishes the goal up front and steers the questioning to match it
+2. Works one question at a time in dependency order, putting a recommended answer on the table to push against
+3. Brings two voices to every branch — one from your installed roster, one conjured by the topic
+4. Challenges fuzzy terms and tests claims against an existing project's material
+5. Lands as Hardened, Killed, or Clearer, with a self-contained report you can keep
+
+**Input:** The idea, in any domain — a feature, a business model, a research hypothesis, a life decision
+
+**Output:** A `forged-idea.md` distillate when an idea hardens (optional), plus a `forge-report.html` keepsake every run
+
+### bmad-party-mode
 
 **Orchestrate multi-agent group discussions.** — Loads all installed BMad agents and facilitates a natural conversation where each agent contributes from their unique expertise and personality.
 
@@ -96,198 +247,3 @@ The magic happens in ideas 50–100. The workflow encourages generating 100+ ide
 **Input:** Discussion topic or question, along with specification of personas you would like to participate (optional)
 
 **Output:** Real-time multi-agent conversation with maintained agent personalities
-
-## bmad-distillator
-
-**Lossless LLM-optimized compression of source documents.** — Produces dense, token-efficient distillates that preserve all information for downstream LLM consumption. Verifiable through round-trip reconstruction.
-
-**Use it when:**
-
-- A document is too large for an LLM's context window
-- You need token-efficient versions of research, specs, or planning artifacts
-- You want to verify no information is lost during compression
-- Agents will need to frequently reference and find information in it
-
-**How it works:**
-
-1. **Analyze** — Reads source documents, identifies information density and structure
-2. **Compress** — Converts prose to dense bullet-point format, strips decorative formatting
-3. **Verify** — Checks completeness to ensure all original information is preserved
-4. **Validate** (optional) — Round-trip reconstruction test proves lossless compression
-
-**Input:**
-
-- `source_documents` (required) — File paths, folder paths, or glob patterns
-- `downstream_consumer` (optional) — What consumes this (e.g., "PRD creation")
-- `token_budget` (optional) — Approximate target size
-- `--validate` (flag) — Run round-trip reconstruction test
-
-**Output:** Distillate markdown file(s) with compression ratio report (e.g., "3.2:1")
-
-## bmad-advanced-elicitation
-
-**Push LLM output through iterative refinement methods.** — Selects from a library of elicitation techniques to systematically improve content through multiple passes.
-
-**Use it when:**
-
-- LLM output feels shallow or generic
-- You want to explore a topic from multiple analytical angles
-- You're refining a critical document and want deeper thinking
-
-**How it works:**
-
-1. Loads method registry with 5+ elicitation techniques
-2. Selects 5 best-fit methods based on content type and complexity
-3. Presents an interactive menu — pick a method, reshuffle, or list all
-4. Applies the selected method to enhance the content
-5. Re-presents options for iterative improvement until you select "Proceed"
-
-**Input:** Content section to enhance
-
-**Output:** Enhanced version of the content with improvements applied
-
-## bmad-review-adversarial-general
-
-**Cynical review that assumes problems exist and searches for them.** — Takes a skeptical, jaded reviewer perspective with zero patience for sloppy work. Looks for what's missing, not just what's wrong.
-
-**Use it when:**
-
-- You need quality assurance before finalizing a deliverable
-- You want to stress-test a spec, story, or document
-- You want to find gaps in coverage that optimistic reviews miss
-
-**How it works:**
-
-1. Reads the content with a cynical, critical perspective
-2. Identifies issues across completeness, correctness, and quality
-3. Searches specifically for what's missing — not just what's present and wrong
-4. Must find a minimum of 10 issues or re-analyzes deeper
-
-**Input:**
-
-- `content` (required) — Diff, spec, story, doc, or any artifact
-- `also_consider` (optional) — Additional areas to keep in mind
-
-**Output:** Markdown list of 10+ findings with descriptions
-
-## bmad-review-edge-case-hunter
-
-**Walk every branching path and boundary condition, report only unhandled cases.** — Pure path-tracing methodology that mechanically derives edge classes. Orthogonal to adversarial review — method-driven, not attitude-driven.
-
-**Use it when:**
-
-- You want exhaustive edge case coverage for code or logic
-- You need a complement to adversarial review (different methodology, different findings)
-- You're reviewing a diff or function for boundary conditions
-
-**How it works:**
-
-1. Enumerates all branching paths in the content
-2. Derives edge classes mechanically: missing else/default, unguarded inputs, off-by-one, arithmetic overflow, implicit type coercion, race conditions, timeout gaps
-3. Tests each path against existing guards
-4. Reports only unhandled paths — silently discards handled ones
-
-**Input:**
-
-- `content` (required) — Diff, full file, or function
-- `also_consider` (optional) — Additional areas to keep in mind
-
-**Output:** JSON array of findings, each with `location`, `trigger_condition`, `guard_snippet`, and `potential_consequence`
-
-:::note[Complementary Reviews]
-Run both `bmad-review-adversarial-general` and `bmad-review-edge-case-hunter` together for orthogonal coverage. The adversarial review catches quality and completeness issues; the edge case hunter catches unhandled paths.
-:::
-
-## bmad-editorial-review-prose
-
-**Clinical copy-editing focused on communication clarity.** — Reviews text for issues that impede comprehension. Applies Microsoft Writing Style Guide baseline. Preserves author voice.
-
-**Use it when:**
-
-- You've drafted a document and want to polish the writing
-- You need to ensure clarity for a specific audience
-- You want communication fixes without style opinion changes
-
-**How it works:**
-
-1. Reads the content, skipping code blocks and frontmatter
-2. Identifies communication issues (not style preferences)
-3. Deduplicates same issues across multiple locations
-4. Produces a three-column fix table
-
-**Input:**
-
-- `content` (required) — Markdown, plain text, or XML
-- `style_guide` (optional) — Project-specific style guide
-- `reader_type` (optional) — `humans` (default) for clarity/flow, or `llm` for precision/consistency
-
-**Output:** Three-column markdown table: Original Text | Revised Text | Changes
-
-## bmad-editorial-review-structure
-
-**Structural editing — proposes cuts, merges, moves, and condensing.** — Reviews document organization and proposes substantive changes to improve clarity and flow before copy editing.
-
-**Use it when:**
-
-- A document was produced from multiple subprocesses and needs structural coherence
-- You want to reduce document length while preserving comprehension
-- You need to identify scope violations or buried critical information
-
-**How it works:**
-
-1. Analyzes document against 5 structure models (Tutorial, Reference, Explanation, Prompt, Strategic)
-2. Identifies redundancies, scope violations, and buried information
-3. Produces prioritized recommendations: CUT, MERGE, MOVE, CONDENSE, QUESTION, PRESERVE
-4. Estimates total reduction in words and percentage
-
-**Input:**
-
-- `content` (required) — Document to review
-- `purpose` (optional) — Intended purpose (e.g., "quickstart tutorial")
-- `target_audience` (optional) — Who reads this
-- `reader_type` (optional) — `humans` or `llm`
-- `length_target` (optional) — Target reduction (e.g., "30% shorter")
-
-**Output:** Document summary, prioritized recommendation list, and estimated reduction
-
-## bmad-shard-doc
-
-**Split large markdown files into organized section files.** — Uses level-2 headers as split points to create a folder of self-contained section files with an index.
-
-**Use it when:**
-
-- A markdown document has grown too large to manage effectively (500+ lines)
-- You want to break a monolithic doc into navigable sections
-- You need separate files for parallel editing or LLM context management
-
-**How it works:**
-
-1. Validates the source file exists and is markdown
-2. Splits on level-2 (`##`) headers into numbered section files
-3. Creates an `index.md` with section manifest and links
-4. Prompts you to delete, archive, or keep the original
-
-**Input:** Source markdown file path, optional destination folder
-
-**Output:** Folder with `index.md` and `01-{section}.md`, `02-{section}.md`, etc.
-
-## bmad-index-docs
-
-**Generate or update an index of all documents in a folder.** — Scans a directory, reads each file to understand its purpose, and produces an organized `index.md` with links and descriptions.
-
-**Use it when:**
-
-- You need a lightweight index for quick LLM scanning of available docs
-- A documentation folder has grown and needs an organized table of contents
-- You want an auto-generated overview that stays current
-
-**How it works:**
-
-1. Scans the target directory for all non-hidden files
-2. Reads each file to understand its actual purpose
-3. Groups files by type, purpose, or subdirectory
-4. Generates concise descriptions (3–10 words each)
-
-**Input:** Target folder path
-
-**Output:** `index.md` with organized file listings, relative links, and brief descriptions

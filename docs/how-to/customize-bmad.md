@@ -2,7 +2,7 @@
 title: 'How to Customize BMad'
 description: Customize agents and workflows while preserving update compatibility
 sidebar:
-  order: 8
+  order: 7
 ---
 
 Tailor agent personas, inject domain context, add capabilities, and configure workflow behavior -- all without modifying installed files. Your customizations survive every update.
@@ -22,7 +22,7 @@ The `bmad-customize` skill is a guided authoring helper for the **per-skill agen
 :::note[Prerequisites]
 
 - BMad installed in your project (see [How to Install BMad](./install-bmad.md))
-- Python 3.11+ on your PATH (for the resolver script -- uses stdlib `tomllib`, no `pip install`, no `uv`, no virtualenv)
+- [`uv`](https://docs.astral.sh/uv/) on your PATH — BMad runs the resolver script with `uv run`, and uv provisions a suitable Python for you, so you don't need to install one yourself. The script uses only stdlib `tomllib`, so there's nothing to `pip install`.
 - A text editor for TOML files
 :::
 
@@ -201,15 +201,15 @@ persistent_facts = [
 
 ## How Resolution Works
 
-On activation, the agent's SKILL.md runs a shared Python script that does the three-layer merge and returns the resolved block as JSON. The script uses the Python standard library's `tomllib` module (no external dependencies), so plain `python3` is enough:
+On activation, the agent's SKILL.md runs a shared Python script that does the three-layer merge and returns the resolved block as JSON. The script uses only the Python standard library's `tomllib` module (no external dependencies). BMad invokes it with `uv run`, which provisions a suitable Python for you:
 
 ```bash
-python3 {project-root}/_bmad/scripts/resolve_customization.py \
+uv run {project-root}/_bmad/scripts/resolve_customization.py \
   --skill {skill-root} \
   --key agent
 ```
 
-**Requirements**: Python 3.11+ (earlier versions don't include `tomllib`). No `pip install`, no `uv`, no virtualenv. Check with `python3 --version`. Some platforms (macOS without Homebrew, Ubuntu 22.04) default `python3` to 3.10 or earlier, so you may need to install 3.11+ separately.
+**Requirements**: `uv`, and nothing to `pip install`. The script declares `requires-python = ">=3.11"` in its own header (earlier versions don't include `tomllib`), and `uv run` reads that and resolves a matching interpreter — so whatever `python3` resolves to on your PATH doesn't matter. If you'd rather invoke it by hand with `python3`, check your version first: some platforms (macOS without Homebrew, Ubuntu 22.04) default `python3` to 3.10 or earlier.
 
 `--skill` points at the skill's installed directory (where `customize.toml` lives). The skill name is derived from the directory's basename, and the script looks up `_bmad/custom/{skill-name}.toml` and `{skill-name}.user.toml` automatically.
 
@@ -217,17 +217,17 @@ Useful invocations:
 
 ```bash
 # Resolve the full agent block
-python3 {project-root}/_bmad/scripts/resolve_customization.py \
+uv run {project-root}/_bmad/scripts/resolve_customization.py \
   --skill /abs/path/to/bmad-agent-pm \
   --key agent
 
 # Resolve a single field
-python3 {project-root}/_bmad/scripts/resolve_customization.py \
+uv run {project-root}/_bmad/scripts/resolve_customization.py \
   --skill /abs/path/to/bmad-agent-pm \
   --key agent.icon
 
 # Full dump
-python3 {project-root}/_bmad/scripts/resolve_customization.py \
+uv run {project-root}/_bmad/scripts/resolve_customization.py \
   --skill /abs/path/to/bmad-agent-pm
 ```
 

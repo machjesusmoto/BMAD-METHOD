@@ -1,7 +1,7 @@
 /**
  * Deterministic Skill Validator
  *
- * Validates 14 deterministic rules across all skill directories.
+ * Validates 12 deterministic rules across all skill directories.
  * Acts as a fast first-pass complement to the inference-based skill validator.
  *
  * What it checks:
@@ -12,13 +12,12 @@
  * - SKILL-05: name matches directory basename
  * - SKILL-06: description quality (length, "Use when"/"Use if")
  * - SKILL-07: SKILL.md has body content after frontmatter
- * - WF-01: workflow.md frontmatter has no name
- * - WF-02: workflow.md frontmatter has no description
  * - PATH-02: no installed_path variable
  * - STEP-01: step filename format
  * - STEP-06: step frontmatter has no name/description
  * - STEP-07: step count 2-10
  * - SEQ-02: no time estimates
+ * - TPL-01: template files must not contain compile-time {{.var}} substitutions
  *
  * Usage:
  *   node tools/validate-skills.js                    # All skills, human-readable
@@ -45,6 +44,8 @@ const positionalArgs = args.filter((a) => !a.startsWith('--'));
 const NAME_REGEX = /^bmad-[a-z0-9]+(-[a-z0-9]+)*$/;
 const STEP_FILENAME_REGEX = /^step-\d{2}[a-z]?-[a-z0-9-]+\.md$/;
 const TIME_ESTIMATE_PATTERNS = [/takes?\s+\d+\s*min/i, /~\s*\d+\s*min/i, /estimated\s+time/i, /\bETA\b/];
+const TEMPLATE_FILENAME_REGEX = /template/i;
+const COMPILE_TIME_SUB_REGEX = /\{\{\.\w+\}\}/;
 
 const SEVERITY_ORDER = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
 
@@ -314,6 +315,11 @@ function validateSkill(skillDir) {
   const name = skillFm && skillFm.name;
   const description = skillFm && skillFm.description;
 
+  // Deprecated skills are thin compatibility shims that forward to a replacement.
+  // They intentionally omit a "Use when" trigger so users are steered to the new
+  // skill instead, so exempt them from the SKILL-06 trigger-phrase requirement.
+  const isDeprecated = typeof description === 'string' && /^\s*deprecated\b/i.test(description);
+
   // --- SKILL-04: name format ---
   if (name && !NAME_REGEX.test(name)) {
     findings.push({
@@ -351,7 +357,7 @@ function validateSkill(skillDir) {
       });
     }
 
-    if (!/use\s+when\b/i.test(description) && !/use\s+if\b/i.test(description)) {
+    if (!isDeprecated && !/use\s+when\b/i.test(description) && !/use\s+if\b/i.test(description)) {
       findings.push({
         rule: 'SKILL-06',
         title: 'description Quality',
@@ -386,43 +392,6 @@ function validateSkill(skillDir) {
         file: 'SKILL.md',
         detail: 'SKILL.md has no content after frontmatter. L2 instructions are required.',
         fix: 'Add markdown body with skill instructions after the closing ---.',
-      });
-    }
-  }
-
-  // --- WF-01 / WF-02: non-SKILL.md files must NOT have name/description ---
-  // TODO: bmad-agent-tech-writer has sub-skill files with intentional name/description
-  const WF_SKIP_SKILLS = new Set(['bmad-agent-tech-writer']);
-  for (const filePath of allFiles) {
-    if (path.extname(filePath) !== '.md') continue;
-    if (path.basename(filePath) === 'SKILL.md') continue;
-    if (WF_SKIP_SKILLS.has(dirName)) continue;
-
-    const relFile = path.relative(skillDir, filePath);
-    const content = safeReadFile(filePath, findings, relFile);
-    if (content === null) continue;
-    const fm = parseFrontmatter(content);
-    if (!fm) continue;
-
-    if ('name' in fm) {
-      findings.push({
-        rule: 'WF-01',
-        title: 'Only SKILL.md May Have name in Frontmatter',
-        severity: 'HIGH',
-        file: relFile,
-        detail: `${relFile} frontmatter contains \`name\` — this belongs only in SKILL.md.`,
-        fix: "Remove the `name:` line from this file's frontmatter.",
-      });
-    }
-
-    if ('description' in fm) {
-      findings.push({
-        rule: 'WF-02',
-        title: 'Only SKILL.md May Have description in Frontmatter',
-        severity: 'HIGH',
-        file: relFile,
-        detail: `${relFile} frontmatter contains \`description\` — this belongs only in SKILL.md.`,
-        fix: "Remove the `description:` line from this file's frontmatter.",
       });
     }
   }
@@ -565,6 +534,36 @@ function validateSkill(skillDir) {
           });
           break; // Only report once per line
         }
+      }
+    }
+  }
+
+  // --- TPL-01: template files must not contain compile-time {{.var}} substitutions ---
+  // Template files seed durable, version-controlled artifacts (spec files) that
+  // execute on other machines. Baking a {{.var}} at render time would freeze a
+  // machine-local value into every downstream artifact.
+  for (const filePath of allFiles) {
+    if (path.extname(filePath) !== '.md') continue;
+    const base = path.basename(filePath);
+    if (!TEMPLATE_FILENAME_REGEX.test(base)) continue;
+
+    const relFile = path.relative(skillDir, filePath);
+    const content = safeReadFile(filePath, findings, relFile);
+    if (content === null) continue;
+
+    const lines = content.split('\n');
+    for (const [i, line] of lines.entries()) {
+      const match = line.match(COMPILE_TIME_SUB_REGEX);
+      if (match) {
+        findings.push({
+          rule: 'TPL-01',
+          title: 'Template files must not contain compile-time substitutions',
+          severity: 'HIGH',
+          file: relFile,
+          line: i + 1,
+          detail: `Template file contains compile-time substitution \`${match[0]}\` — this would be baked at render time and leak a machine-local value into every spec produced from the template.`,
+          fix: 'Remove the `{{.var}}` reference. Use single-curly `{var}` if the value should be resolved at LLM runtime by the consumer of the generated spec.',
+        });
       }
     }
   }

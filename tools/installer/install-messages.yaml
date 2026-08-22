@@ -12,6 +12,11 @@ startMessage: |
   🌟 100% free. 100% open source. Always.
      No paywalls. No gated content. Knowledge shared, not sold.
 
+  🐍 REQUIRED: uv (https://docs.astral.sh/uv/) runs the Python scripts BMAD
+     skills rely on (`uv run <script>`) and provisions the interpreter itself.
+     Without it, bmad-build and bmad-build-auto halt on activation.
+     If it's not set up yet, ask your AI agent to "install and set up uv for me".
+
   🌐 CONNECT:
     Website:   https://bmadcode.com/
     Discord:   https://discord.gg/gk8jAdXWmj

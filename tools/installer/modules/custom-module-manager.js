@@ -3,12 +3,25 @@ const os = require('node:os');
 const path = require('node:path');
 const { execSync } = require('node:child_process');
 const prompts = require('../prompts');
+const { gitEnv } = require('./git-env');
 
 function quoteCustomRef(ref) {
   if (typeof ref !== 'string' || !/^[\w.\-+/]+$/.test(ref)) {
     throw new Error(`Unsafe ref name: ${JSON.stringify(ref)}`);
   }
   return `"${ref}"`;
+}
+
+function isLocalSourcePath(input) {
+  return (
+    input.startsWith('/') ||
+    input.startsWith('./') ||
+    input.startsWith('../') ||
+    input.startsWith('.\\') ||
+    input.startsWith('..\\') ||
+    input.startsWith('~') ||
+    path.win32.isAbsolute(input)
+  );
 }
 
 /**
@@ -19,6 +32,10 @@ function quoteCustomRef(ref) {
 class CustomModuleManager {
   /** @type {Map<string, Object>} Shared across all instances: module code -> ResolvedModule */
   static _resolutionCache = new Map();
+  /** @type {Set<string>} Repo roots refreshed in the current process (dedupe quick-update fetches). */
+  static _refreshedRepoPaths = new Set();
+  /** @type {Map<string, Promise<void>>} In-flight refresh operations keyed by repo path. */
+  static _refreshInFlight = new Map();
 
   // ─── Source Parsing ───────────────────────────────────────────────────────
 
@@ -79,13 +96,7 @@ class CustomModuleManager {
         // Avoid consuming the @ in `git@host:owner/repo` — `before` wouldn't end with a path separator
         // in that case. Require that the @ comes after the host/path, not inside the auth segment.
         // Rule: the @ is a version suffix only if `before` looks like a complete URL or local path.
-        const beforeLooksLikeRepo =
-          before.startsWith('/') ||
-          before.startsWith('./') ||
-          before.startsWith('../') ||
-          before.startsWith('~') ||
-          /^https?:\/\//i.test(before) ||
-          /^git@[^:]+:.+/.test(before);
+        const beforeLooksLikeRepo = isLocalSourcePath(before) || /^https?:\/\//i.test(before) || /^git@[^:]+:.+/.test(before);
         if (beforeLooksLikeRepo) {
           versionSuffix = candidate;
           trimmed = before;
@@ -93,8 +104,8 @@ class CustomModuleManager {
       }
     }
 
-    // Local path detection: starts with /, ./, ../, or ~
-    if (trimmed.startsWith('/') || trimmed.startsWith('./') || trimmed.startsWith('../') || trimmed.startsWith('~')) {
+    // Local path detection: POSIX, Windows, relative, or home-relative.
+    if (isLocalSourcePath(trimmed)) {
       if (versionSuffix) {
         return {
           type: 'local',
@@ -111,7 +122,7 @@ class CustomModuleManager {
     }
 
     // SSH URL: git@host:owner/repo.git
-    const sshMatch = trimmed.match(/^git@([^:]+):([^/]+)\/([^/.]+?)(?:\.git)?$/);
+    const sshMatch = trimmed.match(/^git@([^:]+):(.+?)\/([^/.]+?)(?:\.git)?$/);
     if (sshMatch) {
       const [, host, owner, repo] = sshMatch;
       return {
@@ -408,7 +419,7 @@ class CustomModuleManager {
         execSync('git fetch origin --depth 1', {
           cwd: repoCacheDir,
           stdio: ['ignore', 'pipe', 'pipe'],
-          env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+          env: gitEnv({ GIT_TERMINAL_PROMPT: '0' }),
         });
         if (effectiveVersion) {
           // Fetch the ref as either a tag or a branch — `origin <ref>` works
@@ -417,22 +428,49 @@ class CustomModuleManager {
           execSync(`git fetch --depth 1 origin ${quoteCustomRef(effectiveVersion)} --no-tags`, {
             cwd: repoCacheDir,
             stdio: ['ignore', 'pipe', 'pipe'],
-            env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+            env: gitEnv({ GIT_TERMINAL_PROMPT: '0' }),
           });
           execSync(`git checkout --quiet FETCH_HEAD`, {
             cwd: repoCacheDir,
             stdio: ['ignore', 'pipe', 'pipe'],
+            env: gitEnv(),
           });
         } else {
-          execSync('git reset --hard origin/HEAD', {
+          // Resolve the default branch (origin/HEAD) and fetch it explicitly.
+          // With shallow clones, `origin/HEAD` is stale and `git reset --hard
+          // origin/HEAD` never picks up new commits on the default branch.
+          let defaultBranch = 'main';
+          try {
+            defaultBranch = execSync('git symbolic-ref refs/remotes/origin/HEAD --short', {
+              cwd: repoCacheDir,
+              stdio: 'pipe',
+              env: gitEnv(),
+            })
+              .toString()
+              .trim()
+              .replace('origin/', '');
+          } catch {
+            // Fallback if origin/HEAD is not set
+          }
+          execSync(`git fetch --depth 1 origin ${quoteCustomRef(defaultBranch)}`, {
             cwd: repoCacheDir,
             stdio: ['ignore', 'pipe', 'pipe'],
+            env: gitEnv({ GIT_TERMINAL_PROMPT: '0' }),
+          });
+          execSync(`git reset --hard origin/${quoteCustomRef(defaultBranch)}`, {
+            cwd: repoCacheDir,
+            stdio: ['ignore', 'pipe', 'pipe'],
+            env: gitEnv(),
           });
         }
         fetchSpinner.stop(`Updated ${displayName}`);
       } catch {
-        fetchSpinner.error(`Update failed, re-downloading ${displayName}`);
-        await fs.remove(repoCacheDir);
+        // Fetch failed against an existing cache — most often the remote is
+        // unreachable (network down, repo deleted/moved, auth revoked).
+        // Preserve the previous clone so re-deploy still works from cached
+        // content; surface a warning so the user knows the cache is stale.
+        fetchSpinner.error(`Could not refresh ${displayName} — keeping cached copy`);
+        await prompts.log.warn(`Custom module ${displayName} was not refreshed (remote unreachable). Using cached copy.`);
       }
     }
 
@@ -443,12 +481,12 @@ class CustomModuleManager {
         if (effectiveVersion) {
           execSync(`git clone --depth 1 --branch ${quoteCustomRef(effectiveVersion)} "${parsed.cloneUrl}" "${repoCacheDir}"`, {
             stdio: ['ignore', 'pipe', 'pipe'],
-            env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+            env: gitEnv({ GIT_TERMINAL_PROMPT: '0' }),
           });
         } else {
           execSync(`git clone --depth 1 "${parsed.cloneUrl}" "${repoCacheDir}"`, {
             stdio: ['ignore', 'pipe', 'pipe'],
-            env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+            env: gitEnv({ GIT_TERMINAL_PROMPT: '0' }),
           });
         }
         fetchSpinner.stop(`Cloned ${displayName}`);
@@ -462,9 +500,36 @@ class CustomModuleManager {
     // Record the resolved SHA for the manifest writer.
     let resolvedSha = null;
     try {
-      resolvedSha = execSync('git rev-parse HEAD', { cwd: repoCacheDir, stdio: 'pipe' }).toString().trim();
+      resolvedSha = execSync('git rev-parse HEAD', { cwd: repoCacheDir, stdio: 'pipe', env: gitEnv() }).toString().trim();
     } catch {
       // swallow — a non-git repo (local path) wouldn't reach here anyway
+    }
+    // Best-effort: capture the remote default branch name so channel marker
+    // metadata for "next" reflects the actual tracked ref (not always "main").
+    let defaultRef = 'main';
+    if (!effectiveVersion) {
+      try {
+        const symbolic = execSync('git symbolic-ref --short refs/remotes/origin/HEAD', {
+          cwd: repoCacheDir,
+          stdio: 'pipe',
+          env: gitEnv(),
+        })
+          .toString()
+          .trim();
+        if (symbolic.startsWith('origin/')) {
+          defaultRef = symbolic.slice('origin/'.length) || defaultRef;
+        }
+      } catch {
+        // Fallback to previous marker value when symbolic ref is unavailable.
+        try {
+          const existingMarker = await fs.readJson(path.join(repoCacheDir, '.bmad-channel.json'));
+          if (existingMarker?.channel === 'next' && typeof existingMarker.version === 'string' && existingMarker.version.trim()) {
+            defaultRef = existingMarker.version.trim();
+          }
+        } catch {
+          // Keep default fallback.
+        }
+      }
     }
 
     // Write source metadata for later URL reconstruction
@@ -478,6 +543,15 @@ class CustomModuleManager {
       sha: resolvedSha,
       clonedAt: new Date().toISOString(),
     });
+    // Keep a channel marker in custom cache too so update paths that rely on
+    // channel metadata (same as official-module cache) can treat this clone as
+    // refreshable. URL + no explicit ref => next, explicit ref => pinned.
+    await fs.writeJson(path.join(repoCacheDir, '.bmad-channel.json'), {
+      channel: effectiveVersion ? 'pinned' : 'next',
+      version: effectiveVersion || defaultRef,
+      sha: resolvedSha,
+      writtenAt: new Date().toISOString(),
+    });
 
     // Install dependencies if package.json exists (skip during browsing/analysis)
     const packageJsonPath = path.join(repoCacheDir, 'package.json');
@@ -489,6 +563,7 @@ class CustomModuleManager {
           cwd: repoCacheDir,
           stdio: ['ignore', 'pipe', 'pipe'],
           timeout: 120_000,
+          env: gitEnv(), // npm shells out to git for git-URL deps; keep hook GIT_* vars away from it
         });
         installSpinner.stop(`Installed dependencies for ${displayName}`);
       } catch (error_) {
@@ -642,6 +717,13 @@ class CustomModuleManager {
       const repoRoots = await this._findCacheRepoRoots(cacheDir);
 
       for (const { repoPath, metadata } of repoRoots) {
+        // Quick-update path: refresh URL-backed cached repos before reading
+        // files from them so re-deploy uses latest commits for `next` and
+        // the pinned ref for `pinned`.
+        if (options.bmadDir && metadata?.rawInput) {
+          await this._refreshRepoCacheOnce(repoPath, metadata);
+        }
+
         // Check marketplace.json for matching module code
         const marketplacePath = path.join(repoPath, '.claude-plugin', 'marketplace.json');
         if (!(await fs.pathExists(marketplacePath))) continue;
@@ -690,6 +772,45 @@ class CustomModuleManager {
 
     // Fallback: check manifest for localPath (local-source modules not in cache)
     return this._findLocalSourceFromManifest(moduleCode, options);
+  }
+
+  /**
+   * Refresh one cached repo at most once per process with in-flight dedupe.
+   * Prevents concurrent quick-update callers from racing the same cache path.
+   * @param {string} repoPath - Absolute cache repo path
+   * @param {Object} metadata - Parsed .bmad-source.json metadata
+   */
+  async _refreshRepoCacheOnce(repoPath, metadata) {
+    if (CustomModuleManager._refreshedRepoPaths.has(repoPath)) return;
+
+    const existing = CustomModuleManager._refreshInFlight.get(repoPath);
+    if (existing) {
+      await existing;
+      return;
+    }
+
+    const refreshPromise = (async () => {
+      try {
+        await this.cloneRepo(metadata.rawInput, {
+          silent: true,
+          pinOverride: metadata.version || undefined,
+        });
+        CustomModuleManager._refreshedRepoPaths.add(repoPath);
+      } catch (error_) {
+        // cloneRepo only throws here for unrecoverable cases (no cache present
+        // and a fresh clone failed, or an unexpected internal error). The
+        // common "remote unreachable but cache exists" case is handled inside
+        // cloneRepo, which preserves the clone and returns normally. Reaching
+        // this catch means we have no usable cache — surface a warning so the
+        // failure isn't silent.
+        await prompts.log.warn(`Refresh of cached custom module at ${path.basename(repoPath)} failed: ${error_?.message || error_}`);
+      } finally {
+        CustomModuleManager._refreshInFlight.delete(repoPath);
+      }
+    })();
+
+    CustomModuleManager._refreshInFlight.set(repoPath, refreshPromise);
+    await refreshPromise;
   }
 
   /**

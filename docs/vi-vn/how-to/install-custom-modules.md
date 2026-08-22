@@ -2,7 +2,7 @@
 title: 'Cài đặt module tùy chỉnh và module cộng đồng'
 description: Cài các module bên thứ ba từ kho cộng đồng (community registry), kho Git hoặc đường dẫn cục bộ
 sidebar:
-  order: 3
+  order: 2
 ---
 
 Sử dụng trình cài đặt BMad để thêm module từ kho cộng đồng (community registry), kho Git của bên thứ ba hoặc đường dẫn file cục bộ.
@@ -15,7 +15,7 @@ Sử dụng trình cài đặt BMad để thêm module từ kho cộng đồng (
 - Cài module từ máy chủ Git riêng tư hoặc tự host
 
 :::note[Điều kiện tiên quyết]
-Yêu cầu [Node.js](https://nodejs.org) v20+ và `npx` đi kèm npm. Bạn có thể chọn module tùy chỉnh và module cộng đồng trong lúc cài mới, hoặc thêm chúng vào một bản cài hiện có.
+Yêu cầu [Node.js](https://nodejs.org) v20.12+ và `npx` đi kèm npm. Bạn có thể chọn module tùy chỉnh và module cộng đồng trong lúc cài mới, hoặc thêm chúng vào một bản cài hiện có.
 :::
 
 ## Module cộng đồng

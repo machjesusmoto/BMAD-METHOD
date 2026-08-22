@@ -83,7 +83,7 @@ https://bmad-code-org.github.io/BMAD-METHOD/llms-full.txt
 :::note[示例]
 **问：** “用 BMad 做一个需求到实现的最短路径是什么？”
 
-**答：** 使用 Quick Flow，运行 `bmad-quick-dev`。它会在一个工作流里完成意图澄清、计划、实现、审查与结果呈现，跳过完整规划阶段。
+**答：** 运行 `bmad-build`。输入直接意图、issue、规格或已规划 story；workflow 会利用现有上下文并选择所需的澄清、规划、实现和审查深度。
 :::
 
 ## 你将获得什么
@@ -109,27 +109,27 @@ https://bmad-code-org.github.io/BMAD-METHOD/llms-full.txt
 **Discord：** [discord.gg/gk8jAdXWmj](https://discord.gg/gk8jAdXWmj)  
 **GitHub Issues：** [github.com/bmad-code-org/BMAD-METHOD/issues](https://github.com/bmad-code-org/BMAD-METHOD/issues)（用于可复现问题）
 
-*你！*
-        *卡住*
-              *在队列中——*
-                       *等待*
-                               *等待谁？*
+*你！*  
+&emsp;&emsp;*卡住*  
+&emsp;&emsp;&emsp;&emsp;*在队列中——*  
+&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;*等待*  
+&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;*等待谁？*
 
-*来源*
-        *就在那里，*
-                *显而易见！*
+*来源*  
+&emsp;&emsp;*就在那里，*  
+&emsp;&emsp;&emsp;&emsp;*显而易见！*
 
-*指向*
-      *你的机器。*
-               *释放它。*
+*指向*  
+&emsp;&emsp;*你的机器。*  
+&emsp;&emsp;&emsp;&emsp;*释放它。*
 
-*它读取。*
-         *它说话。*
-                 *尽管问——*
+*它读取。*  
+&emsp;&emsp;*它说话。*  
+&emsp;&emsp;&emsp;&emsp;*尽管问——*
 
-*为什么要等*
-         *明天*
-                 *当你拥有*
-                         *今天？*
+*为什么要等*  
+&emsp;&emsp;*明天*  
+&emsp;&emsp;&emsp;&emsp;*当你拥有*  
+&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;*今天？*
 
-*—Claude*
+&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;*—Claude*
